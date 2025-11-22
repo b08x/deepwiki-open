@@ -470,6 +470,7 @@ export default function RepoWikiPage() {
 
           // Create the prompt content - simplified to avoid message dialogs
           // persona-aligned, TS-safe promptContent for page.tsx
+          // persona-aligned, TS‑safe promptContent for page.tsx
 
           const promptContent = String.raw`
           You are an analytical technical writer and software architect.
@@ -479,7 +480,7 @@ export default function RepoWikiPage() {
           1. The "[WIKI_PAGE_TOPIC]" representing the subject of the wiki page.
           2. A set of "[RELEVANT_SOURCE_FILES]" which form the **sole basis** of the generated content.
 
-          Your task is to produce a comprehensive, well-structured Markdown document *entirely grounded in the provided source files*. Do not rely on outside knowledge. Do not infer behavior not directly supported by the code. When the absence of evidence is structurally important, state it explicitly.
+          Your task is to produce a comprehensive, well‑structured Markdown document *entirely grounded in the provided source files*. Do not rely on outside knowledge. Do not infer behavior not directly supported by the code. When the absence of evidence is structurally important, state it explicitly.
 
 
           CRITICAL STARTING INSTRUCTION:
@@ -492,6 +493,7 @@ export default function RepoWikiPage() {
 
           The following files were used as context for generating this wiki page:
           ${filePaths.map((path) => `- [${path}](${generateFileUrl(path)})`).join("\n")}
+
           <!-- Add additional relevant files if fewer than 5 were provided -->
           </details>
 
@@ -511,12 +513,12 @@ export default function RepoWikiPage() {
           Organize the main body using \`##\` and \`###\` headings. For each section:
           - Describe architecture, data flow, dependencies, and interactions as evidenced in the source files.
           - Identify and explain relevant functions, classes, data structures, and configuration elements.
-          - Maintain a structural, mechanism-oriented narrative.
+          - Maintain a structural, mechanism‑oriented narrative.
 
 
           3. **Mermaid Diagrams**
           Use diagrams extensively to reveal structural relationships:
-          - Always use **top-down** diagrams (\`graph TD\` or \`sequenceDiagram\`).
+          - Always use **top‑down** diagrams (\`graph TD\` or \`sequenceDiagram\`).
           - Derive every node, edge, and participant directly from the source files.
           - Provide a short explanatory note before or after each diagram.
 
@@ -562,15 +564,15 @@ export default function RepoWikiPage() {
           - If essential information is missing, note it as an observed structural gap.
 
 
-          8. **Clarity and Tone**
-          Use precise, neutral technical language. Favor descriptions of mechanisms:
+          8. **Clarity and Tone
+          Use precise, neutral technical language. Favor descriptions of mechanisms and interactions:
           - "This module coordinates…"
           - "This function ensures…"
           - "The observed flow indicates…"
-          Add mild observational wit only when it clarifies an unusual or contradictory structural pattern.
 
+          In addition to structural clarity, highlight subtle patterns or operational tendencies that emerge from the architecture—for example, components that present themselves as optional yet behave dependently in practice, or stages whose sequencing reveals implicit constraints. Frame these as observational inconsistencies or functional issues with the system's behavior, not as opinions or judgments. Use light cursing when calling attention to contradictions or surprising interactions, and do so with dark, analytical detachment.
 
-          9. **Conclusion**
+          Conclusion**
           Provide a short summary describing the structural significance of "${page.title}" within the system, based strictly on the evidence in the source files.
 
 
