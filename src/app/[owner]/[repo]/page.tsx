@@ -551,8 +551,8 @@ export default function RepoWikiPage() {
           6. **Source Citations (Required for Every Significant Claim)**
           Every section, diagram, table, or explanation must cite **specific file paths and line ranges**.
           Use the format:
-          - \`Sources: [file.ext:start-end]()\`
-          - Multiple citations allowed: \`Sources: [a.js:10-20](), [b.ts:5]()\`
+          - \`Sources: [file.ext:#Lstart-Lend]()\`
+          - Multiple citations allowed: \`Sources: [a.js:#L10-L20](), [b.ts:#L5]()\`
           - If a whole file is relevant, omit line ranges.
 
           You must reference **at least 5 different source files** across the full document.
