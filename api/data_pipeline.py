@@ -7,6 +7,7 @@ import json
 import tiktoken
 import logging
 import base64
+import re
 import glob
 from adalflow.utils import get_adalflow_default_root_path
 from adalflow.core.db import LocalDB
@@ -68,12 +69,11 @@ def count_tokens(text: str, embedder_type: str = None, is_ollama_embedder: bool 
         return len(text) // 4
 
 
-def download_repo(repo_url: str, local_path: str, repo_type: str = None, access_token: str = None) -> str:
+def download_repo(repo_url: str, local_path: str, type: str = "github", access_token: str = None) -> str:
     """
     Downloads a Git repository (GitHub, GitLab, or Bitbucket) to a specified local path.
 
     Args:
-        repo_type(str): Type of repository
         repo_url (str): The URL of the Git repository to clone.
         local_path (str): The local directory where the repository will be cloned.
         access_token (str, optional): Access token for private repositories.
@@ -106,16 +106,16 @@ def download_repo(repo_url: str, local_path: str, repo_type: str = None, access_
         if access_token:
             parsed = urlparse(repo_url)
             # Determine the repository type and format the URL accordingly
-            if repo_type == "github":
+            if type == "github":
                 # Format: https://{token}@{domain}/owner/repo.git
                 # Works for both github.com and enterprise GitHub domains
                 clone_url = urlunparse(
                     (parsed.scheme, f"{access_token}@{parsed.netloc}", parsed.path, '', '', ''))
-            elif repo_type == "gitlab":
+            elif type == "gitlab":
                 # Format: https://oauth2:{token}@gitlab.com/owner/repo.git
                 clone_url = urlunparse(
                     (parsed.scheme, f"oauth2:{access_token}@{parsed.netloc}", parsed.path, '', '', ''))
-            elif repo_type == "bitbucket":
+            elif type == "bitbucket":
                 # Format: https://x-token-auth:{token}@bitbucket.org/owner/repo.git
                 clone_url = urlunparse(
                     (parsed.scheme, f"x-token-auth:{access_token}@{parsed.netloc}", parsed.path, '', '', ''))
@@ -407,7 +407,21 @@ def prepare_data_pipeline(embedder_type: str = None, is_ollama_embedder: bool = 
     if embedder_type is None:
         embedder_type = get_embedder_type()
 
-    splitter = TextSplitter(**configs["text_splitter"])
+    # Choose splitter based on configuration
+    split_by = configs.get("text_splitter", {}).get("split_by", "word")
+    if split_by == "ast":
+        # Use AST splitter for better code understanding
+        try:
+            from .ast_integration import ASTTextSplitter
+            splitter = ASTTextSplitter(**configs["text_splitter"])
+            print("🚀 Using AST-based chunking for better code understanding")
+        except ImportError as e:
+            print(f"⚠️  AST chunking not available, falling back to text: {e}")
+            splitter = TextSplitter(**configs["text_splitter"])
+    else:
+        # Use traditional text splitter
+        splitter = TextSplitter(**configs["text_splitter"])
+
     embedder_config = get_embedder_config()
 
     embedder = get_embedder(embedder_type=embedder_type)
@@ -708,12 +722,11 @@ def get_bitbucket_file_content(repo_url: str, file_path: str, access_token: str 
         raise ValueError(f"Failed to get file content: {str(e)}")
 
 
-def get_file_content(repo_url: str, file_path: str, repo_type: str = None, access_token: str = None) -> str:
+def get_file_content(repo_url: str, file_path: str, type: str = "github", access_token: str = None) -> str:
     """
     Retrieves the content of a file from a Git repository (GitHub or GitLab).
 
     Args:
-        repo_type (str): Type of repository
         repo_url (str): The URL of the repository
         file_path (str): The path to the file within the repository
         access_token (str, optional): Access token for private repositories
@@ -724,15 +737,15 @@ def get_file_content(repo_url: str, file_path: str, repo_type: str = None, acces
     Raises:
         ValueError: If the file cannot be fetched or if the URL is not valid
     """
-    if repo_type == "github":
+    if type == "github":
         return get_github_file_content(repo_url, file_path, access_token)
-    elif repo_type == "gitlab":
+    elif type == "gitlab":
         return get_gitlab_file_content(repo_url, file_path, access_token)
-    elif repo_type == "bitbucket":
+    elif type == "bitbucket":
         return get_bitbucket_file_content(repo_url, file_path, access_token)
     else:
         raise ValueError(
-            "Unsupported repository type. Only GitHub, GitLab, and Bitbucket are supported.")
+            "Unsupported repository URL. Only GitHub and GitLab are supported.")
 
 
 class DatabaseManager:
@@ -745,7 +758,7 @@ class DatabaseManager:
         self.repo_url_or_path = None
         self.repo_paths = None
 
-    def prepare_database(self, repo_url_or_path: str, repo_type: str = None, access_token: str = None,
+    def prepare_database(self, repo_url_or_path: str, type: str = "github", access_token: str = None,
                          embedder_type: str = None, is_ollama_embedder: bool = None,
                          excluded_dirs: List[str] = None, excluded_files: List[str] = None,
                          included_dirs: List[str] = None, included_files: List[str] = None) -> List[Document]:
@@ -753,7 +766,6 @@ class DatabaseManager:
         Create a new database from the repository.
 
         Args:
-            repo_type(str): Type of repository
             repo_url_or_path (str): The URL or local path of the repository
             access_token (str, optional): Access token for private repositories
             embedder_type (str, optional): Embedder type to use ('openai', 'google', 'ollama').
@@ -773,7 +785,7 @@ class DatabaseManager:
             embedder_type = 'ollama' if is_ollama_embedder else None
 
         self.reset_database()
-        self._create_repo(repo_url_or_path, repo_type, access_token)
+        self._create_repo(repo_url_or_path, type, access_token)
         return self.prepare_db_index(embedder_type=embedder_type, excluded_dirs=excluded_dirs, excluded_files=excluded_files,
                                      included_dirs=included_dirs, included_files=included_files)
 
@@ -800,7 +812,7 @@ class DatabaseManager:
             repo_name = url_parts[-1].replace(".git", "")
         return repo_name
 
-    def _create_repo(self, repo_url_or_path: str, repo_type: str = None, access_token: str = None) -> None:
+    def _create_repo(self, repo_url_or_path: str, repo_type: str = "github", access_token: str = None) -> None:
         """
         Download and prepare all paths.
         Paths:
@@ -808,7 +820,6 @@ class DatabaseManager:
         ~/.adalflow/databases/{owner}_{repo_name}.pkl
 
         Args:
-            repo_type(str): Type of repository
             repo_url_or_path (str): The URL or local path of the repository
             access_token (str, optional): Access token for private repositories
         """
@@ -909,17 +920,16 @@ class DatabaseManager:
         logger.info(f"Total transformed documents: {len(transformed_docs)}")
         return transformed_docs
 
-    def prepare_retriever(self, repo_url_or_path: str, repo_type: str = None, access_token: str = None):
+    def prepare_retriever(self, repo_url_or_path: str, type: str = "github", access_token: str = None):
         """
         Prepare the retriever for a repository.
         This is a compatibility method for the isolated API.
 
         Args:
-            repo_type(str): Type of repository
             repo_url_or_path (str): The URL or local path of the repository
             access_token (str, optional): Access token for private repositories
 
         Returns:
             List[Document]: List of Document objects
         """
-        return self.prepare_database(repo_url_or_path, repo_type, access_token)
+        return self.prepare_database(repo_url_or_path, type, access_token)

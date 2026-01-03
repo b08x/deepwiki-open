@@ -1,7 +1,7 @@
 {
   "file_filters": {
     "excluded_dirs": [
-      "./.venv/", 
+      "./.venv/",
       "./venv/", 
       "./env/", 
       "./virtualenv/",
@@ -11,9 +11,15 @@
       "./.git/", 
       "./.svn/", 
       "./.hg/", 
-      "./.bzr/"
+      "./.bzr/",
+      "./.claude/",
+      "./.cache/"
     ],
     "excluded_files": [
+      "CLAUDE.md",
+      "GEMINI.md",
+      "AGENTS.md",
+      "cliff.toml",
       "yarn.lock", 
       "pnpm-lock.yaml", 
       "npm-shrinkwrap.json", 
