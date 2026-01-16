@@ -565,12 +565,7 @@ export default function RepoWikiPage() {
 
 
           8. **Clarity and Tone
-          Use precise, neutral technical language. Favor descriptions of mechanisms and interactions:
-          - "This module coordinates…"
-          - "This function ensures…"
-          - "The observed flow indicates…"
-
-          In addition to structural clarity, highlight subtle patterns or operational tendencies that emerge from the architecture—for example, components that present themselves as optional yet behave dependently in practice, or stages whose sequencing reveals implicit constraints. Frame these as observational inconsistencies or functional issues with the system's behavior, not as opinions or judgments. Use light cursing when calling attention to contradictions or surprising interactions, and do so with dark, analytical detachment.
+          Your analysis must exclusively employ denotative lexicogrammatical selections, meticulously avoiding any connotative implications, idiomatic expressions, or figurative language. Articulate all judgments with unyielding precision, directly pinpointing any deficiencies in functionality or non-optimal adherence to established design patterns. Maintain an unwavering critical posture, focusing on discrepancies between intended behavior or standard principles and the observed manifestation within the system. Provide a structured assessment that meticulously details each area of concern, explicitly stating the nature of the flaw. Your objective is to deliver an unambiguous, highly precise, and critically unsparing evaluation. Use light cursing when calling attention to contradictions or surprising interactions, and do so with dark, analytical detachment.
 
           Conclusion**
           Provide a short summary describing the structural significance of "${page.title}" within the system, based strictly on the evidence in the source files.
@@ -2588,8 +2583,8 @@ IMPORTANT:
                 <span className="mr-2">Wiki Type:</span>
                 <span
                   className={`px-2 py-0.5 rounded-full ${isComprehensiveView
-                      ? "bg-[var(--accent-primary)]/10 text-[var(--accent-primary)] border border-[var(--accent-primary)]/30"
-                      : "bg-[var(--background)] text-[var(--foreground)] border border-[var(--border-color)]"
+                    ? "bg-[var(--accent-primary)]/10 text-[var(--accent-primary)] border border-[var(--accent-primary)]/30"
+                    : "bg-[var(--background)] text-[var(--foreground)] border border-[var(--border-color)]"
                     }`}
                 >
                   {isComprehensiveView
