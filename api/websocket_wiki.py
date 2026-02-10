@@ -3,14 +3,15 @@ import os
 from typing import List, Optional, Dict, Any
 from urllib.parse import unquote
 
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from adalflow.components.model_client.ollama_client import OllamaClient
 from adalflow.core.types import ModelType
 from fastapi import WebSocket, WebSocketDisconnect, HTTPException
 from pydantic import BaseModel, Field
 
 from api.repo_utils import analyze_local_repository as get_local_repo_structure
-from api.config import get_model_config, configs, OPENROUTER_API_KEY, OPENAI_API_KEY
+from api.config import get_model_config, configs, OPENROUTER_API_KEY, OPENAI_API_KEY, GOOGLE_API_KEY
 from api.data_pipeline import count_tokens, get_file_content
 from api.openai_client import OpenAIClient
 from api.openrouter_client import OpenRouterClient
@@ -745,15 +746,16 @@ This file contains...
                 model_type=ModelType.LLM
             )
         else:
-            # Initialize Google Generative AI model
-            model = genai.GenerativeModel(
-                model_name=model_config["model"],
-                generation_config={
-                    "temperature": model_config["temperature"],
-                    "top_p": model_config["top_p"],
-                    "top_k": model_config["top_k"]
-                }
+            # Initialize Google Gen AI client (new SDK)
+            google_client = genai.Client(api_key=GOOGLE_API_KEY)
+            google_model_name = model_config["model"]
+            google_generation_config = types.GenerateContentConfig(
+                temperature=model_config["temperature"],
+                top_p=model_config["top_p"],
+                top_k=model_config["top_k"]
             )
+            # Store for use in streaming section
+            model = None  # Not used for Google provider
 
         # Process the response based on the provider
         try:
@@ -839,8 +841,13 @@ This file contains...
                     # Close the WebSocket connection after sending the error message
                     await websocket.close()
             else:
-                # Generate streaming response
-                response = model.generate_content(prompt, stream=True)
+                # Generate streaming response using new Google Gen AI SDK
+                response = google_client.models.generate_content(
+                    model=google_model_name,
+                    contents=prompt,
+                    config=google_generation_config,
+                    stream=True
+                )
                 # Stream the response
                 for chunk in response:
                     if hasattr(chunk, 'text'):
@@ -963,21 +970,23 @@ This file contains...
                             error_msg = f"\nError with Azure AI API fallback: {str(e_fallback)}\n\nPlease check that you have set the AZURE_OPENAI_API_KEY, AZURE_OPENAI_ENDPOINT, and AZURE_OPENAI_VERSION environment variables with valid values."
                             await websocket.send_text(error_msg)
                     else:
-                        # Initialize Google Generative AI model
+                        # Initialize Google Gen AI client for fallback (new SDK)
                         model_config = get_model_config(
                             request.provider, request.model)
-                        fallback_model = genai.GenerativeModel(
-                            model_name=model_config["model"],
-                            generation_config={
-                                "temperature": model_config["model_kwargs"].get("temperature", 0.7),
-                                "top_p": model_config["model_kwargs"].get("top_p", 0.8),
-                                "top_k": model_config["model_kwargs"].get("top_k", 40)
-                            }
+                        fallback_client = genai.Client(api_key=GOOGLE_API_KEY)
+                        fallback_config = types.GenerateContentConfig(
+                            temperature=model_config["model_kwargs"].get("temperature", 0.7),
+                            top_p=model_config["model_kwargs"].get("top_p", 0.8),
+                            top_k=model_config["model_kwargs"].get("top_k", 40)
                         )
 
                         # Get streaming response using simplified prompt
-                        fallback_response = fallback_model.generate_content(
-                            simplified_prompt, stream=True)
+                        fallback_response = fallback_client.models.generate_content(
+                            model=model_config["model"],
+                            contents=simplified_prompt,
+                            config=fallback_config,
+                            stream=True
+                        )
                         # Stream the fallback response
                         for chunk in fallback_response:
                             if hasattr(chunk, 'text'):

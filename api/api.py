@@ -2,6 +2,15 @@ from api.config import configs, WIKI_AUTH_MODE, WIKI_AUTH_CODE
 from api.websocket_wiki import handle_websocket_chat
 from api.simple_chat import chat_completions_stream
 from api.repo_utils import analyze_local_repository, format_chunk_as_tree
+from api.provider_validator import ProviderValidatorService
+from api.validators import (
+    GoogleValidator,
+    GroqValidator,
+    HuggingFaceValidator,
+    MistralValidator,
+    OllamaValidator,
+    OpenRouterValidator,
+)
 
 import os
 import logging
@@ -12,7 +21,6 @@ from typing import List, Optional, Dict, Any, Literal
 import json
 from datetime import datetime
 from pydantic import BaseModel, Field
-import google.generativeai as genai
 import asyncio
 from collections import defaultdict
 import fnmatch
@@ -36,6 +44,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Initialize Provider Validator Service
+# Cache TTL is 8 hours (28800 seconds) by default
+validator_service = ProviderValidatorService(cache_ttl=28800)
+
+# Register all provider validators
+validator_service.register_validator("openrouter", OpenRouterValidator())
+validator_service.register_validator("google", GoogleValidator())
+validator_service.register_validator("ollama", OllamaValidator())
+validator_service.register_validator("mistral", MistralValidator())
+validator_service.register_validator("groq", GroqValidator())
+validator_service.register_validator("huggingface", HuggingFaceValidator())
+
+logger.info(f"Registered {len(validator_service.list_providers())} provider validators")
 
 
 # Pydantic models for wiki pages
@@ -209,18 +231,21 @@ async def validate_auth_code(request: AuthorizationConfig):
 
 
 @app.get("/models/config", response_model=ModelConfig)
-async def get_model_config():
+async def get_model_config(refresh: bool = Query(False, description="Force refresh models from provider APIs")):
     """
     Get available model providers and their models.
 
     This endpoint returns the configuration of available model providers and their
     respective models that can be used throughout the application.
 
+    Args:
+        refresh: If True, bypass cache and fetch fresh models from provider APIs
+
     Returns:
         ModelConfig: A configuration object containing providers and their models
     """
     try:
-        logger.info("Fetching model configurations")
+        logger.info(f"Fetching model configurations (refresh={refresh})")
 
         # Create providers from the config file
         providers = []
@@ -229,10 +254,38 @@ async def get_model_config():
         # Add provider configuration based on config.py
         for provider_id, provider_config in configs["providers"].items():
             models = []
-            # Add models from config
-            for model_id in provider_config["models"].keys():
-                # Get a more user-friendly display name if possible
-                models.append(Model(id=model_id, name=model_id))
+
+            # If refresh is requested, try to fetch models dynamically
+            if refresh:
+                api_key = get_api_key_for_provider(provider_id)
+                if api_key or provider_id == "ollama":  # Ollama doesn't need API key
+                    try:
+                        logger.info(f"Fetching dynamic models for {provider_id}")
+                        result = await validator_service.validate_and_refresh(
+                            provider_id, api_key or "", force=True
+                        )
+
+                        if result.status == "valid" and result.models:
+                            models = [Model(id=m["id"], name=m["name"]) for m in result.models]
+                            logger.info(f"Fetched {len(models)} models for {provider_id}")
+                        else:
+                            logger.warning(f"Dynamic fetch failed for {provider_id}: {result.error}")
+                            # Fall back to static config
+                            for model_id in provider_config["models"].keys():
+                                models.append(Model(id=model_id, name=model_id))
+                    except Exception as e:
+                        logger.error(f"Error fetching dynamic models for {provider_id}: {str(e)}")
+                        # Fall back to static config
+                        for model_id in provider_config["models"].keys():
+                            models.append(Model(id=model_id, name=model_id))
+                else:
+                    # No API key, use static config
+                    for model_id in provider_config["models"].keys():
+                        models.append(Model(id=model_id, name=model_id))
+            else:
+                # Use static config from generator.json
+                for model_id in provider_config["models"].keys():
+                    models.append(Model(id=model_id, name=model_id))
 
             # Add provider with its models
             providers.append(
@@ -268,6 +321,119 @@ async def get_model_config():
             ],
             defaultProvider="google"
         )
+
+
+def get_api_key_for_provider(provider: str) -> Optional[str]:
+    """Helper function to get API key for a provider from environment.
+
+    Args:
+        provider: Provider identifier (e.g., "openrouter", "google")
+
+    Returns:
+        API key if found, None otherwise
+    """
+    key_map = {
+        "openrouter": "OPENROUTER_API_KEY",
+        "google": "GOOGLE_API_KEY",
+        "mistral": "MISTRAL_API_KEY",
+        "groq": "GROQ_API_KEY",
+        "huggingface": "HUGGINGFACE_API_KEY",
+        "ollama": None  # Ollama doesn't use API keys
+    }
+    env_var = key_map.get(provider)
+    return os.getenv(env_var) if env_var else None
+
+
+@app.post("/api/providers/validate")
+async def validate_provider(
+    provider: str = Query(..., description="Provider ID to validate"),
+    api_key: Optional[str] = Query(None, description="API key to validate (optional, uses env var if not provided)")
+) -> Dict:
+    """Validate API key for a specific provider.
+
+    Args:
+        provider: Provider ID (openrouter, google, mistral, groq, huggingface, ollama)
+        api_key: API key to validate (optional, uses env var if not provided)
+
+    Returns:
+        Validation result with status and error message if applicable
+    """
+    try:
+        if not api_key:
+            api_key = get_api_key_for_provider(provider)
+
+        if not api_key and provider != "ollama":
+            raise HTTPException(
+                status_code=400,
+                detail=f"No API key provided for {provider}"
+            )
+
+        logger.info(f"Validating API key for provider: {provider}")
+        result = await validator_service.validate_and_refresh(provider, api_key or "")
+
+        return {
+            "provider": provider,
+            "status": result.status,
+            "error": result.error,
+            "models_count": len(result.models) if result.models else 0,
+            "timestamp": datetime.fromtimestamp(result.timestamp).isoformat()
+        }
+
+    except ValueError as e:
+        # Unsupported provider
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error validating provider {provider}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Validation error: {str(e)}")
+
+
+@app.post("/api/providers/refresh")
+async def refresh_provider_models(
+    provider: str = Query(..., description="Provider ID to refresh"),
+    force: bool = Query(False, description="Bypass cache and fetch fresh data")
+) -> Dict:
+    """Refresh model list for a specific provider.
+
+    Args:
+        provider: Provider ID
+        force: Bypass cache and fetch fresh data
+
+    Returns:
+        Updated model list
+    """
+    try:
+        api_key = get_api_key_for_provider(provider)
+        if not api_key and provider != "ollama":
+            raise HTTPException(
+                status_code=400,
+                detail=f"No API key configured for {provider}"
+            )
+
+        logger.info(f"Refreshing models for provider: {provider} (force={force})")
+        result = await validator_service.validate_and_refresh(provider, api_key or "", force=force)
+
+        if result.status != "valid":
+            raise HTTPException(
+                status_code=400,
+                detail=result.error or f"Failed to refresh models for {provider}"
+            )
+
+        return {
+            "provider": provider,
+            "status": "success",
+            "models": result.models,
+            "cached": not force,
+            "timestamp": datetime.fromtimestamp(result.timestamp).isoformat()
+        }
+
+    except HTTPException:
+        raise
+    except ValueError as e:
+        # Unsupported provider
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error refreshing models for {provider}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Refresh error: {str(e)}")
 
 
 @app.post("/export/wiki")
