@@ -17,10 +17,10 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - LOG_FILE_PATH=${LOG_FILE_PATH:-api/logs/application.log}
     volumes:
-      - /var/home/b08x/.adaflow:/root/.adalflow:Z      # Added :Z for SELinux compatibility in Podman
+      - /home/b08x/.adaflow:/root/.adalflow:Z      # Added :Z for SELinux compatibility in Podman
       - ./api/logs:/app/api/logs:Z
       - ./api/config:/app/api/config:ro,Z
-      - /var/home/b08x/Workspace:/data:Z
+      - /home/b08x/Workspace:/data:Z
     # Resource limits
     deploy:
       resources:

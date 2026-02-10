@@ -1,14 +1,22 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 // The target backend server base URL, derived from environment variable or defaulted.
 const TARGET_SERVER_BASE_URL = process.env.SERVER_BASE_URL || 'http://localhost:8001';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const targetUrl = `${TARGET_SERVER_BASE_URL}/models/config`;
+    // Get query parameters from the request
+    const { searchParams } = new URL(request.url);
+    const refresh = searchParams.get('refresh');
+
+    // Build target URL with query parameters
+    const targetUrl = new URL(`${TARGET_SERVER_BASE_URL}/models/config`);
+    if (refresh) {
+      targetUrl.searchParams.set('refresh', refresh);
+    }
 
     // Make the actual request to the backend service
-    const backendResponse = await fetch(targetUrl, {
+    const backendResponse = await fetch(targetUrl.toString(), {
       method: 'GET',
       headers: {
         'Accept': 'application/json',

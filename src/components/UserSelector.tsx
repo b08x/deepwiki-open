@@ -79,42 +79,98 @@ export default function UserSelector({
   const [showDefaultDirs, setShowDefaultDirs] = useState(false);
   const [showDefaultFiles, setShowDefaultFiles] = useState(false);
 
+  // State for refresh functionality
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
+
   // Fetch model configurations from the backend
-  useEffect(() => {
-    const fetchModelConfig = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
+  const fetchModelConfig = async (forceRefresh = false) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      setRefreshError(null);
 
-        const response = await fetch('/api/models/config');
+      const url = forceRefresh ? '/api/models/config?refresh=true' : '/api/models/config';
+      const response = await fetch(url);
 
-        if (!response.ok) {
-          throw new Error(`Error fetching model configurations: ${response.status}`);
-        }
-
-        const data = await response.json();
-        setModelConfig(data);
-
-        // Initialize provider and model with defaults from API if not already set
-        if (!provider && data.defaultProvider) {
-          setProvider(data.defaultProvider);
-
-          // Find the default provider and set its default model
-          const selectedProvider = data.providers.find((p: Provider) => p.id === data.defaultProvider);
-          if (selectedProvider && selectedProvider.models.length > 0) {
-            setModel(selectedProvider.models[0].id);
-          }
-        }
-      } catch (err) {
-        console.error('Failed to fetch model configurations:', err);
-        setError('Failed to load model configurations. Using default options.');
-      } finally {
-        setIsLoading(false);
+      if (!response.ok) {
+        throw new Error(`Error fetching model configurations: ${response.status}`);
       }
-    };
 
+      const data = await response.json();
+      setModelConfig(data);
+
+      // Initialize provider and model with defaults from API if not already set
+      if (!provider && data.defaultProvider) {
+        setProvider(data.defaultProvider);
+
+        // Find the default provider and set its default model
+        const selectedProvider = data.providers.find((p: Provider) => p.id === data.defaultProvider);
+        if (selectedProvider && selectedProvider.models.length > 0) {
+          setModel(selectedProvider.models[0].id);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch model configurations:', err);
+      const errorMessage = 'Failed to load model configurations. Using default options.';
+      setError(errorMessage);
+      if (forceRefresh) {
+        setRefreshError(errorMessage);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Initial fetch on component mount
+  useEffect(() => {
     fetchModelConfig();
-  }, [provider, setModel, setProvider]);
+  }, []);
+
+  // Refresh models for a specific provider
+  const refreshModels = async (providerOverride?: string) => {
+    const targetProvider = providerOverride || provider;
+    if (!targetProvider) {
+      setRefreshError('No provider selected');
+      return;
+    }
+
+    setIsRefreshing(true);
+    setRefreshError(null);
+
+    try {
+      // Call the refresh endpoint
+      const response = await fetch(`/api/providers/refresh?provider=${targetProvider}&force=true`, {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to refresh models');
+      }
+
+      // Reload model config after successful refresh
+      await fetchModelConfig(true);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to refresh models';
+      setRefreshError(errorMessage);
+      console.error('Failed to refresh models:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // Auto-refresh on provider change (disabled to prevent excessive API calls)
+  // Users can manually refresh using the refresh button
+  // useEffect(() => {
+  //   if (provider) {
+  //     const timer = setTimeout(() => {
+  //       refreshModels(provider);
+  //     }, 500); // Debounce 500ms
+  //
+  //     return () => clearTimeout(timer);
+  //   }
+  // }, [provider]);
 
   // Handler for changing provider
   const handleProviderChange = (newProvider: string) => {
@@ -281,19 +337,48 @@ next.config.js
           <label htmlFor="provider-dropdown" className="block text-xs font-medium text-[var(--foreground)] mb-1.5">
             {t.form?.modelProvider || 'Model Provider'}
           </label>
-          <select
-            id="provider-dropdown"
-            value={provider}
-            onChange={(e) => handleProviderChange(e.target.value)}
-            className="input-japanese block w-full px-2.5 py-1.5 text-sm rounded-md bg-transparent text-[var(--foreground)] focus:outline-none focus:border-[var(--accent-primary)]"
-          >
-            <option value="" disabled>{t.form?.selectProvider || 'Select Provider'}</option>
-            {modelConfig?.providers.map((providerOption) => (
-              <option key={providerOption.id} value={providerOption.id}>
-                {t.form?.[`provider${providerOption.id.charAt(0).toUpperCase() + providerOption.id.slice(1)}`] || providerOption.name}
-              </option>
-            ))}
-          </select>
+          <div className="flex items-center gap-2">
+            <select
+              id="provider-dropdown"
+              value={provider}
+              onChange={(e) => handleProviderChange(e.target.value)}
+              className="input-japanese block w-full px-2.5 py-1.5 text-sm rounded-md bg-transparent text-[var(--foreground)] focus:outline-none focus:border-[var(--accent-primary)]"
+            >
+              <option value="" disabled>{t.form?.selectProvider || 'Select Provider'}</option>
+              {modelConfig?.providers.map((providerOption) => (
+                <option key={providerOption.id} value={providerOption.id}>
+                  {t.form?.[`provider${providerOption.id.charAt(0).toUpperCase() + providerOption.id.slice(1)}`] || providerOption.name}
+                </option>
+              ))}
+            </select>
+
+            {/* Refresh Button */}
+            <button
+              type="button"
+              onClick={() => refreshModels()}
+              disabled={isRefreshing || !provider}
+              className="px-2.5 py-1.5 text-sm rounded-md border border-[var(--border)] bg-transparent text-[var(--foreground)] hover:bg-[var(--hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              title="Refresh available models"
+            >
+              {isRefreshing ? (
+                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              ) : (
+                <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              )}
+            </button>
+          </div>
+
+          {/* Error Display */}
+          {refreshError && (
+            <div className="mt-2 text-xs text-red-500">
+              Error: {refreshError}
+            </div>
+          )}
         </div>
 
         {/* Model Selection - consistent height regardless of type */}
