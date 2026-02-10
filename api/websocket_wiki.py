@@ -3,18 +3,21 @@ import os
 from typing import List, Optional, Dict, Any
 from urllib.parse import unquote
 
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from adalflow.components.model_client.ollama_client import OllamaClient
 from adalflow.core.types import ModelType
 from fastapi import WebSocket, WebSocketDisconnect, HTTPException
 from pydantic import BaseModel, Field
 
-from api.config import get_model_config, configs, OPENROUTER_API_KEY, OPENAI_API_KEY
+from api.repo_utils import analyze_local_repository as get_local_repo_structure
+from api.config import get_model_config, configs, OPENROUTER_API_KEY, OPENAI_API_KEY, GOOGLE_API_KEY
 from api.data_pipeline import count_tokens, get_file_content
 from api.openai_client import OpenAIClient
 from api.openrouter_client import OpenRouterClient
 from api.azureai_client import AzureAIClient
 from api.dashscope_client import DashscopeClient
+from api.prompts import WIKI_STRUCTURE_SYSTEM_PROMPT
 from api.rag import RAG
 
 # Configure logging
@@ -29,25 +32,169 @@ class ChatMessage(BaseModel):
     role: str  # 'user' or 'assistant'
     content: str
 
+
 class ChatCompletionRequest(BaseModel):
     """
     Model for requesting a chat completion.
     """
     repo_url: str = Field(..., description="URL of the repository to query")
-    messages: List[ChatMessage] = Field(..., description="List of chat messages")
-    filePath: Optional[str] = Field(None, description="Optional path to a file in the repository to include in the prompt")
-    token: Optional[str] = Field(None, description="Personal access token for private repositories")
-    type: Optional[str] = Field("github", description="Type of repository (e.g., 'github', 'gitlab', 'bitbucket')")
+    messages: List[ChatMessage] = Field(...,
+                                        description="List of chat messages")
+    filePath: Optional[str] = Field(
+        None, description="Optional path to a file in the repository to include in the prompt")
+    token: Optional[str] = Field(
+        None, description="Personal access token for private repositories")
+    type: Optional[str] = Field(
+        "github", description="Type of repository (e.g., 'github', 'gitlab', 'bitbucket')")
 
     # model parameters
-    provider: str = Field("google", description="Model provider (google, openai, openrouter, ollama, azure)")
-    model: Optional[str] = Field(None, description="Model name for the specified provider")
+    provider: str = Field(
+        "google", description="Model provider (google, openai, openrouter, ollama, azure)")
+    model: Optional[str] = Field(
+        None, description="Model name for the specified provider")
 
-    language: Optional[str] = Field("en", description="Language for content generation (e.g., 'en', 'ja', 'zh', 'es', 'kr', 'vi')")
-    excluded_dirs: Optional[str] = Field(None, description="Comma-separated list of directories to exclude from processing")
-    excluded_files: Optional[str] = Field(None, description="Comma-separated list of file patterns to exclude from processing")
-    included_dirs: Optional[str] = Field(None, description="Comma-separated list of directories to include exclusively")
-    included_files: Optional[str] = Field(None, description="Comma-separated list of file patterns to include exclusively")
+    language: Optional[str] = Field(
+        "en", description="Language for content generation (e.g., 'en', 'ja', 'zh', 'es', 'kr', 'vi')")
+    excluded_dirs: Optional[str] = Field(
+        None, description="Comma-separated list of directories to exclude from processing")
+    excluded_files: Optional[str] = Field(
+        None, description="Comma-separated list of file patterns to exclude from processing")
+    included_dirs: Optional[str] = Field(
+        None, description="Comma-separated list of directories to include exclusively")
+    included_files: Optional[str] = Field(
+        None, description="Comma-separated list of file patterns to include exclusively")
+
+
+async def handle_response_stream(
+    response,
+    websocket: WebSocket,
+    is_structure_generation: bool,
+    provider: str
+) -> None:
+    """
+    Handle streaming or accumulated response based on context.
+
+    This helper function eliminates code duplication between different providers
+    by handling both streaming (for chat) and accumulating (for wiki structure) modes.
+
+    Args:
+        response: Async iterator from the model's response
+        websocket: Active WebSocket connection
+        is_structure_generation: If True, accumulate full response before sending
+        provider: Provider name for provider-specific text extraction
+    """
+    if is_structure_generation:
+        # Accumulate full response for wiki structure generation
+        logger.info("Accumulating full response for wiki structure generation")
+        full_response = ""
+        chunk_count = 0
+
+        async for chunk in response:
+            chunk_count += 1
+
+            # Extract text based on provider and response format
+            text = None
+            if provider == "ollama":
+                # Ollama-specific extraction
+                if hasattr(chunk, 'message') and hasattr(chunk.message, 'content'):
+                    text = chunk.message.content
+                elif hasattr(chunk, 'response'):
+                    text = chunk.response
+                elif hasattr(chunk, 'text'):
+                    text = chunk.text
+                else:
+                    text = str(chunk)
+
+                logger.info(
+                    f"Chunk {chunk_count}: type={type(chunk)}, text_len={len(text) if text else 0}, starts_with={text[:50] if text else 'None'}")
+
+                # Filter out metadata chunks
+                if text and not text.startswith('model=') and not text.startswith('created_at='):
+                    text = text.replace('<think>', '').replace('</think>', '')
+                    full_response += text
+                    logger.info(
+                        f"Added to full_response, new length: {len(full_response)}")
+            elif provider in ["openai", "azure"]:
+                # OpenAI/Azure-style responses with choices and delta
+                choices = getattr(chunk, "choices", [])
+                if len(choices) > 0:
+                    delta = getattr(choices[0], "delta", None)
+                    if delta is not None:
+                        text = getattr(delta, "content", None)
+                        if text:
+                            full_response += text
+            else:
+                # OpenRouter and other providers - simpler text extraction
+                if isinstance(chunk, str):
+                    text = chunk
+                elif hasattr(chunk, 'content'):
+                    text = chunk.content
+                elif hasattr(chunk, 'text'):
+                    text = chunk.text
+                else:
+                    text = str(chunk)
+
+                if text:
+                    full_response += text
+
+        # Strip markdown code blocks if present
+        cleaned_response = full_response.strip()
+        if cleaned_response.startswith('```xml'):
+            cleaned_response = cleaned_response[6:]  # Remove ```xml
+        elif cleaned_response.startswith('```'):
+            cleaned_response = cleaned_response[3:]  # Remove ```
+        if cleaned_response.endswith('```'):
+            cleaned_response = cleaned_response[:-3]  # Remove trailing ```
+        cleaned_response = cleaned_response.strip()
+
+        # Send the complete response at once
+        logger.info(
+            f"Total chunks processed: {chunk_count}, Sending complete XML structure ({len(cleaned_response)} chars)")
+        logger.info(f"First 500 chars of response: {cleaned_response[:500]}")
+        await websocket.send_text(cleaned_response)
+    else:
+        # Stream response chunks as they arrive for regular chat
+        async for chunk in response:
+            # Extract text based on provider
+            text = None
+            if provider == "ollama":
+                # Ollama-specific extraction
+                if hasattr(chunk, 'message') and hasattr(chunk.message, 'content'):
+                    text = chunk.message.content
+                elif hasattr(chunk, 'response'):
+                    text = chunk.response
+                elif hasattr(chunk, 'text'):
+                    text = chunk.text
+                else:
+                    text = str(chunk)
+
+                # Filter out metadata chunks and remove thinking tags
+                if text and not text.startswith('model=') and not text.startswith('created_at='):
+                    text = text.replace('<think>', '').replace('</think>', '')
+                    await websocket.send_text(text)
+            elif provider in ["openai", "azure"]:
+                # OpenAI/Azure-style responses with choices and delta
+                choices = getattr(chunk, "choices", [])
+                if len(choices) > 0:
+                    delta = getattr(choices[0], "delta", None)
+                    if delta is not None:
+                        text = getattr(delta, "content", None)
+                        if text:
+                            await websocket.send_text(text)
+            else:
+                # OpenRouter and other providers
+                if isinstance(chunk, str):
+                    text = chunk
+                elif hasattr(chunk, 'content'):
+                    text = chunk.content
+                elif hasattr(chunk, 'text'):
+                    text = chunk.text
+                else:
+                    text = str(chunk)
+
+                if text:
+                    await websocket.send_text(text)
+
 
 async def handle_websocket_chat(websocket: WebSocket):
     """
@@ -66,11 +213,15 @@ async def handle_websocket_chat(websocket: WebSocket):
         if request.messages and len(request.messages) > 0:
             last_message = request.messages[-1]
             if hasattr(last_message, 'content') and last_message.content:
-                tokens = count_tokens(last_message.content, request.provider == "ollama")
+                tokens = count_tokens(
+                    last_message.content, request.provider == "ollama")
                 logger.info(f"Request size: {tokens} tokens")
                 if tokens > 8000:
-                    logger.warning(f"Request exceeds recommended token limit ({tokens} > 7500)")
+                    logger.warning(
+                        f"Request exceeds recommended token limit ({tokens} > 8000)")
                     input_too_large = True
+                    logger.info(
+                        "Input is large - RAG retrieval will be used to reduce context size")
 
         # Create a new RAG instance for this request
         try:
@@ -83,19 +234,26 @@ async def handle_websocket_chat(websocket: WebSocket):
             included_files = None
 
             if request.excluded_dirs:
-                excluded_dirs = [unquote(dir_path) for dir_path in request.excluded_dirs.split('\n') if dir_path.strip()]
-                logger.info(f"Using custom excluded directories: {excluded_dirs}")
+                excluded_dirs = [unquote(dir_path) for dir_path in request.excluded_dirs.split(
+                    '\n') if dir_path.strip()]
+                logger.info(
+                    f"Using custom excluded directories: {excluded_dirs}")
             if request.excluded_files:
-                excluded_files = [unquote(file_pattern) for file_pattern in request.excluded_files.split('\n') if file_pattern.strip()]
+                excluded_files = [unquote(file_pattern) for file_pattern in request.excluded_files.split(
+                    '\n') if file_pattern.strip()]
                 logger.info(f"Using custom excluded files: {excluded_files}")
             if request.included_dirs:
-                included_dirs = [unquote(dir_path) for dir_path in request.included_dirs.split('\n') if dir_path.strip()]
-                logger.info(f"Using custom included directories: {included_dirs}")
+                included_dirs = [unquote(dir_path) for dir_path in request.included_dirs.split(
+                    '\n') if dir_path.strip()]
+                logger.info(
+                    f"Using custom included directories: {included_dirs}")
             if request.included_files:
-                included_files = [unquote(file_pattern) for file_pattern in request.included_files.split('\n') if file_pattern.strip()]
+                included_files = [unquote(file_pattern) for file_pattern in request.included_files.split(
+                    '\n') if file_pattern.strip()]
                 logger.info(f"Using custom included files: {included_files}")
 
-            request_rag.prepare_retriever(request.repo_url, request.type, request.token, excluded_dirs, excluded_files, included_dirs, included_files)
+            request_rag.prepare_retriever(request.repo_url, request.type, request.token,
+                                          excluded_dirs, excluded_files, included_dirs, included_files)
             logger.info(f"Retriever prepared for {request.repo_url}")
         except ValueError as e:
             if "No valid documents with embeddings found" in str(e):
@@ -153,12 +311,15 @@ async def handle_websocket_chat(websocket: WebSocket):
                 # Only remove the tag from the last message
                 if msg == request.messages[-1]:
                     # Remove the Deep Research tag
-                    msg.content = msg.content.replace("[DEEP RESEARCH]", "").strip()
+                    msg.content = msg.content.replace(
+                        "[DEEP RESEARCH]", "").strip()
 
         # Count research iterations if this is a Deep Research request
         if is_deep_research:
-            research_iteration = sum(1 for msg in request.messages if msg.role == 'assistant') + 1
-            logger.info(f"Deep Research request detected - iteration {research_iteration}")
+            research_iteration = sum(
+                1 for msg in request.messages if msg.role == 'assistant') + 1
+            logger.info(
+                f"Deep Research request detected - iteration {research_iteration}")
 
             # Check if this is a continuation request
             if "continue" in last_message.content.lower() and "research" in last_message.content.lower():
@@ -166,35 +327,60 @@ async def handle_websocket_chat(websocket: WebSocket):
                 original_topic = None
                 for msg in request.messages:
                     if msg.role == "user" and "continue" not in msg.content.lower():
-                        original_topic = msg.content.replace("[DEEP RESEARCH]", "").strip()
-                        logger.info(f"Found original research topic: {original_topic}")
+                        original_topic = msg.content.replace(
+                            "[DEEP RESEARCH]", "").strip()
+                        logger.info(
+                            f"Found original research topic: {original_topic}")
                         break
 
                 if original_topic:
                     # Replace the continuation message with the original topic
                     last_message.content = original_topic
-                    logger.info(f"Using original topic for research: {original_topic}")
+                    logger.info(
+                        f"Using original topic for research: {original_topic}")
 
         # Get the query from the last message
         query = last_message.content
 
-        # Only retrieve documents if input is not too large
+        # Use RAG retrieval to get relevant context
+        # RAG is ALWAYS used when we have embedded documents available
+        # For large inputs (>8K tokens), RAG is ESSENTIAL to reduce context to manageable size
+        # For small inputs, RAG still helps focus on most relevant content
         context_text = ""
         retrieved_documents = None
 
-        if not input_too_large:
+        # Always attempt RAG retrieval when retriever is prepared
+        logger.info(
+            f"Checking RAG availability: request_rag={request_rag}, type={type(request_rag)}")
+        use_rag = request_rag is not None
+        logger.info(f"use_rag={use_rag}")
+
+        if use_rag:
             try:
                 # If filePath exists, modify the query for RAG to focus on the file
                 rag_query = query
                 if request.filePath:
                     # Use the file path to get relevant context about the file
                     rag_query = f"Contexts related to {request.filePath}"
-                    logger.info(f"Modified RAG query to focus on file: {request.filePath}")
+                    logger.info(
+                        f"Modified RAG query to focus on file: {request.filePath}")
 
                 # Try to perform RAG retrieval
                 try:
                     # This will use the actual RAG implementation
-                    retrieved_documents = request_rag(rag_query, language=request.language)
+                    logger.info(
+                        f"Calling RAG with query: {rag_query[:100]}...")
+                    retrieved_documents = request_rag(
+                        rag_query, language=request.language)
+                    logger.info(
+                        f"RAG returned: {type(retrieved_documents)}, length: {len(retrieved_documents) if retrieved_documents else 0}")
+
+                    if retrieved_documents and len(retrieved_documents) > 0:
+                        logger.info(
+                            f"First result type: {type(retrieved_documents[0])}")
+                        if hasattr(retrieved_documents[0], 'documents'):
+                            logger.info(
+                                f"Documents found: {len(retrieved_documents[0].documents)}")
 
                     if retrieved_documents and retrieved_documents[0].documents:
                         # Format context for the prompt in a more structured way
@@ -204,7 +390,8 @@ async def handle_websocket_chat(websocket: WebSocket):
                         # Group documents by file path
                         docs_by_file = {}
                         for doc in documents:
-                            file_path = doc.meta_data.get('file_path', 'unknown')
+                            file_path = doc.meta_data.get(
+                                'file_path', 'unknown')
                             if file_path not in docs_by_file:
                                 docs_by_file[file_path] = []
                             docs_by_file[file_path].append(doc)
@@ -220,7 +407,8 @@ async def handle_websocket_chat(websocket: WebSocket):
                             context_parts.append(f"{header}{content}")
 
                         # Join all parts with clear separation
-                        context_text = "\n\n" + "-" * 10 + "\n\n".join(context_parts)
+                        context_text = "\n\n" + "-" * \
+                            10 + "\n\n".join(context_parts)
                     else:
                         logger.warning("No documents retrieved from RAG")
                 except Exception as e:
@@ -243,8 +431,20 @@ async def handle_websocket_chat(websocket: WebSocket):
         supported_langs = configs["lang_config"]["supported_languages"]
         language_name = supported_langs.get(language_code, "English")
 
+        # Detect if this is a wiki structure generation request
+        is_structure_generation = "create a wiki structure" in query.lower() or \
+            ("analyze this github repository" in query.lower() and
+                                  "wiki structure" in query.lower())
+
+        if is_structure_generation:
+            logger.info(
+                "Detected wiki structure generation request - will use XML format")
+
         # Create system prompt
-        if is_deep_research:
+        if is_structure_generation:
+            # Use the XML structure prompt imported at the top
+            system_prompt = WIKI_STRUCTURE_SYSTEM_PROMPT
+        elif is_deep_research:
             # Check if this is the first iteration
             is_first_iteration = research_iteration == 1
 
@@ -391,8 +591,10 @@ This file contains...
         file_content = ""
         if request.filePath:
             try:
-                file_content = get_file_content(request.repo_url, request.filePath, request.type, request.token)
-                logger.info(f"Successfully retrieved content for file: {request.filePath}")
+                file_content = get_file_content(
+                    request.repo_url, request.filePath, request.type, request.token)
+                logger.info(
+                    f"Successfully retrieved content for file: {request.filePath}")
             except Exception as e:
                 logger.error(f"Error retrieving file content: {str(e)}")
                 # Continue without file content if there's an error
@@ -426,10 +628,16 @@ This file contains...
 
         prompt += f"<query>\n{query}\n</query>\n\nAssistant: "
 
-        model_config = get_model_config(request.provider, request.model)["model_kwargs"]
+        logger.info(
+            f"About to get model config for provider={request.provider}, model={request.model}")
+        model_config = get_model_config(request.provider, request.model)[
+            "model_kwargs"]
+        logger.info(f"Got model_config: {model_config}")
 
         if request.provider == "ollama":
             prompt += " /no_think"
+
+            logger.debug("Entering Ollama provider block")
 
             model = OllamaClient()
             model_kwargs = {
@@ -441,18 +649,26 @@ This file contains...
                     "num_ctx": model_config["num_ctx"]
                 }
             }
+            logger.debug(f"Created model_kwargs for Ollama: {model_kwargs}")
 
             api_kwargs = model.convert_inputs_to_api_kwargs(
                 input=prompt,
                 model_kwargs=model_kwargs,
                 model_type=ModelType.LLM
             )
+            logger.debug(f"api_kwargs before model fix: {api_kwargs}")
+
+            # WORKAROUND: Force the model name in api_kwargs as convert_inputs_to_api_kwargs seems to override it
+            api_kwargs["model"] = model_config["model"]
+            logger.debug(
+                f"api_kwargs after forcing model to {model_config['model']}: {api_kwargs}")
         elif request.provider == "openrouter":
             logger.info(f"Using OpenRouter with model: {request.model}")
 
             # Check if OpenRouter API key is set
             if not OPENROUTER_API_KEY:
-                logger.warning("OPENROUTER_API_KEY not configured, but continuing with request")
+                logger.warning(
+                    "OPENROUTER_API_KEY not configured, but continuing with request")
                 # We'll let the OpenRouterClient handle this and return a friendly error message
 
             model = OpenRouterClient()
@@ -475,7 +691,8 @@ This file contains...
 
             # Check if an API key is set for Openai
             if not OPENAI_API_KEY:
-                logger.warning("OPENAI_API_KEY not configured, but continuing with request")
+                logger.warning(
+                    "OPENAI_API_KEY not configured, but continuing with request")
                 # We'll let the OpenAIClient handle this and return an error message
 
             # Initialize Openai client
@@ -529,40 +746,31 @@ This file contains...
                 model_type=ModelType.LLM
             )
         else:
-            # Initialize Google Generative AI model
-            model = genai.GenerativeModel(
-                model_name=model_config["model"],
-                generation_config={
-                    "temperature": model_config["temperature"],
-                    "top_p": model_config["top_p"],
-                    "top_k": model_config["top_k"]
-                }
+            # Initialize Google Gen AI client (new SDK)
+            google_client = genai.Client(api_key=GOOGLE_API_KEY)
+            google_model_name = model_config["model"]
+            google_generation_config = types.GenerateContentConfig(
+                temperature=model_config["temperature"],
+                top_p=model_config["top_p"],
+                top_k=model_config["top_k"]
             )
+            # Store for use in streaming section
+            model = None  # Not used for Google provider
 
         # Process the response based on the provider
         try:
             if request.provider == "ollama":
                 # Get the response and handle it properly using the previously created api_kwargs
                 response = await model.acall(api_kwargs=api_kwargs, model_type=ModelType.LLM)
-                # Handle streaming response from Ollama
-                async for chunk in response:
-                    message = getattr(chunk, 'message', None)
-                    text = None
-                    if message:
-                        # message might be a Message object or a dict-like object
-                        if hasattr(message, 'get') and callable(message.get):
-                            text = message.get('content')
-                        else:
-                            text = getattr(message, 'content', None)
-                    # Fallbacks
-                    if text is None:
-                        text = getattr(chunk, 'response', None) or getattr(chunk, 'text', None) or str(chunk)
 
-                    # Optional: ignore metadata lines starting with model= or created_at=
-                    if text and not text.startswith('model=') and not text.startswith('created_at='):
-                        # clean up thinking tags
-                        text = text.replace('<think>', '').replace('</think>', '')
-                        await websocket.send_text(text)
+                # Use shared helper to handle streaming or accumulation
+                await handle_response_stream(
+                    response=response,
+                    websocket=websocket,
+                    is_structure_generation=is_structure_generation,
+                    provider="ollama"
+                )
+
                 # Explicitly close the WebSocket connection after the response is complete
                 await websocket.close()
             elif request.provider == "openrouter":
@@ -570,13 +778,20 @@ This file contains...
                     # Get the response and handle it properly using the previously created api_kwargs
                     logger.info("Making OpenRouter API call")
                     response = await model.acall(api_kwargs=api_kwargs, model_type=ModelType.LLM)
-                    # Handle streaming response from OpenRouter
-                    async for chunk in response:
-                        await websocket.send_text(chunk)
+
+                    # Use shared helper to handle streaming or accumulation
+                    await handle_response_stream(
+                        response=response,
+                        websocket=websocket,
+                        is_structure_generation=is_structure_generation,
+                        provider="openrouter"
+                    )
+
                     # Explicitly close the WebSocket connection after the response is complete
                     await websocket.close()
                 except Exception as e_openrouter:
-                    logger.error(f"Error with OpenRouter API: {str(e_openrouter)}")
+                    logger.error(
+                        f"Error with OpenRouter API: {str(e_openrouter)}")
                     error_msg = f"\nError with OpenRouter API: {str(e_openrouter)}\n\nPlease check that you have set the OPENROUTER_API_KEY environment variable with a valid API key."
                     await websocket.send_text(error_msg)
                     # Close the WebSocket connection after sending the error message
@@ -586,15 +801,15 @@ This file contains...
                     # Get the response and handle it properly using the previously created api_kwargs
                     logger.info("Making Openai API call")
                     response = await model.acall(api_kwargs=api_kwargs, model_type=ModelType.LLM)
-                    # Handle streaming response from Openai
-                    async for chunk in response:
-                        choices = getattr(chunk, "choices", [])
-                        if len(choices) > 0:
-                            delta = getattr(choices[0], "delta", None)
-                            if delta is not None:
-                                text = getattr(delta, "content", None)
-                                if text is not None:
-                                    await websocket.send_text(text)
+
+                    # Use shared helper to handle streaming or accumulation
+                    await handle_response_stream(
+                        response=response,
+                        websocket=websocket,
+                        is_structure_generation=is_structure_generation,
+                        provider="openai"
+                    )
+
                     # Explicitly close the WebSocket connection after the response is complete
                     await websocket.close()
                 except Exception as e_openai:
@@ -608,15 +823,15 @@ This file contains...
                     # Get the response and handle it properly using the previously created api_kwargs
                     logger.info("Making Azure AI API call")
                     response = await model.acall(api_kwargs=api_kwargs, model_type=ModelType.LLM)
-                    # Handle streaming response from Azure AI
-                    async for chunk in response:
-                        choices = getattr(chunk, "choices", [])
-                        if len(choices) > 0:
-                            delta = getattr(choices[0], "delta", None)
-                            if delta is not None:
-                                text = getattr(delta, "content", None)
-                                if text is not None:
-                                    await websocket.send_text(text)
+
+                    # Use shared helper to handle streaming or accumulation
+                    await handle_response_stream(
+                        response=response,
+                        websocket=websocket,
+                        is_structure_generation=is_structure_generation,
+                        provider="azure"
+                    )
+
                     # Explicitly close the WebSocket connection after the response is complete
                     await websocket.close()
                 except Exception as e_azure:
@@ -626,8 +841,13 @@ This file contains...
                     # Close the WebSocket connection after sending the error message
                     await websocket.close()
             else:
-                # Generate streaming response
-                response = model.generate_content(prompt, stream=True)
+                # Generate streaming response using new Google Gen AI SDK
+                response = google_client.models.generate_content(
+                    model=google_model_name,
+                    contents=prompt,
+                    config=google_generation_config,
+                    stream=True
+                )
                 # Stream the response
                 for chunk in response:
                     if hasattr(chunk, 'text'):
@@ -642,7 +862,8 @@ This file contains...
             # Check for token limit errors
             if "maximum context length" in error_message or "token limit" in error_message or "too many tokens" in error_message:
                 # If we hit a token limit error, try again without context
-                logger.warning("Token limit exceeded, retrying without context")
+                logger.warning(
+                    "Token limit exceeded, retrying without context")
                 try:
                     # Create a simplified prompt without context
                     simplified_prompt = f"/no_think {system_prompt}\n\n"
@@ -671,9 +892,11 @@ This file contains...
 
                         # Handle streaming fallback_response from Ollama
                         async for chunk in fallback_response:
-                            text = getattr(chunk, 'response', None) or getattr(chunk, 'text', None) or str(chunk)
+                            text = getattr(chunk, 'response', None) or getattr(
+                                chunk, 'text', None) or str(chunk)
                             if text and not text.startswith('model=') and not text.startswith('created_at='):
-                                text = text.replace('<think>', '').replace('</think>', '')
+                                text = text.replace(
+                                    '<think>', '').replace('</think>', '')
                                 await websocket.send_text(text)
                     elif request.provider == "openrouter":
                         try:
@@ -692,7 +915,8 @@ This file contains...
                             async for chunk in fallback_response:
                                 await websocket.send_text(chunk)
                         except Exception as e_fallback:
-                            logger.error(f"Error with OpenRouter API fallback: {str(e_fallback)}")
+                            logger.error(
+                                f"Error with OpenRouter API fallback: {str(e_fallback)}")
                             error_msg = f"\nError with OpenRouter API fallback: {str(e_fallback)}\n\nPlease check that you have set the OPENROUTER_API_KEY environment variable with a valid API key."
                             await websocket.send_text(error_msg)
                     elif request.provider == "openai":
@@ -710,10 +934,12 @@ This file contains...
 
                             # Handle streaming fallback_response from Openai
                             async for chunk in fallback_response:
-                                text = chunk if isinstance(chunk, str) else getattr(chunk, 'text', str(chunk))
+                                text = chunk if isinstance(chunk, str) else getattr(
+                                    chunk, 'text', str(chunk))
                                 await websocket.send_text(text)
                         except Exception as e_fallback:
-                            logger.error(f"Error with Openai API fallback: {str(e_fallback)}")
+                            logger.error(
+                                f"Error with Openai API fallback: {str(e_fallback)}")
                             error_msg = f"\nError with Openai API fallback: {str(e_fallback)}\n\nPlease check that you have set the OPENAI_API_KEY environment variable with a valid API key."
                             await websocket.send_text(error_msg)
                     elif request.provider == "azure":
@@ -739,29 +965,35 @@ This file contains...
                                         if text is not None:
                                             await websocket.send_text(text)
                         except Exception as e_fallback:
-                            logger.error(f"Error with Azure AI API fallback: {str(e_fallback)}")
+                            logger.error(
+                                f"Error with Azure AI API fallback: {str(e_fallback)}")
                             error_msg = f"\nError with Azure AI API fallback: {str(e_fallback)}\n\nPlease check that you have set the AZURE_OPENAI_API_KEY, AZURE_OPENAI_ENDPOINT, and AZURE_OPENAI_VERSION environment variables with valid values."
                             await websocket.send_text(error_msg)
                     else:
-                        # Initialize Google Generative AI model
-                        model_config = get_model_config(request.provider, request.model)
-                        fallback_model = genai.GenerativeModel(
-                            model_name=model_config["model"],
-                            generation_config={
-                                "temperature": model_config["model_kwargs"].get("temperature", 0.7),
-                                "top_p": model_config["model_kwargs"].get("top_p", 0.8),
-                                "top_k": model_config["model_kwargs"].get("top_k", 40)
-                            }
+                        # Initialize Google Gen AI client for fallback (new SDK)
+                        model_config = get_model_config(
+                            request.provider, request.model)
+                        fallback_client = genai.Client(api_key=GOOGLE_API_KEY)
+                        fallback_config = types.GenerateContentConfig(
+                            temperature=model_config["model_kwargs"].get("temperature", 0.7),
+                            top_p=model_config["model_kwargs"].get("top_p", 0.8),
+                            top_k=model_config["model_kwargs"].get("top_k", 40)
                         )
 
                         # Get streaming response using simplified prompt
-                        fallback_response = fallback_model.generate_content(simplified_prompt, stream=True)
+                        fallback_response = fallback_client.models.generate_content(
+                            model=model_config["model"],
+                            contents=simplified_prompt,
+                            config=fallback_config,
+                            stream=True
+                        )
                         # Stream the fallback response
                         for chunk in fallback_response:
                             if hasattr(chunk, 'text'):
                                 await websocket.send_text(chunk.text)
                 except Exception as e2:
-                    logger.error(f"Error in fallback streaming response: {str(e2)}")
+                    logger.error(
+                        f"Error in fallback streaming response: {str(e2)}")
                     await websocket.send_text(f"\nI apologize, but your request is too large for me to process. Please try a shorter query or break it into smaller parts.")
                     # Close the WebSocket connection after sending the error message
                     await websocket.close()
@@ -780,3 +1012,412 @@ This file contains...
             await websocket.close()
         except:
             pass
+
+
+# ============================================================================
+# CHUNKED WIKI GENERATION FOR LARGE REPOSITORIES
+# ============================================================================
+
+async def process_wiki_chunk(
+    chunk_data: Dict[str, Any],
+    chunk_id: int,
+    total_chunks: int,
+    request: ChatCompletionRequest,
+    readme_content: str
+) -> str:
+    """
+    Process a single chunk of files to generate partial wiki structure.
+
+    Args:
+        chunk_data: Dictionary with chunk info (files, directories, file_count)
+        chunk_id: Index of this chunk
+        total_chunks: Total number of chunks
+        request: Original chat completion request
+        readme_content: README content for context
+
+    Returns:
+        XML string with partial wiki structure for this chunk
+    """
+    logger.info(
+        f"Processing chunk {chunk_id + 1}/{total_chunks} with {chunk_data['file_count']} files")
+
+    # Create focused query for this chunk
+    chunk_dirs = chunk_data.get('directories', [])
+    chunk_query = f"""Analyze chunk {chunk_id + 1} of {total_chunks} for this repository.
+
+This chunk contains {chunk_data['file_count']} files from these directories: {', '.join(chunk_dirs[:10])}
+
+Generate a partial wiki structure for ONLY the files in this chunk. Focus on:
+1. Identifying the purpose of these files/directories
+2. Their role in the overall system
+3. How they relate to each other
+
+Return the result in the same XML format, but only include pages relevant to this chunk.
+
+<file_tree>
+{chunk_data.get('file_tree', '')}
+</file_tree>
+
+<readme>
+{readme_content}
+</readme>"""
+
+    try:
+        # Use RAG to get relevant context for this chunk's files
+        retrieved_documents = None
+        if request_rag:
+            try:
+                # Create a focused query for RAG retrieval based on chunk directories
+                rag_query = f"Information about: {', '.join(chunk_dirs[:5])}"
+                logger.info(f"RAG query for chunk {chunk_id + 1}: {rag_query}")
+
+                retrieved_documents = request_rag(rag_query, language="en")
+
+                if retrieved_documents and retrieved_documents[0].documents:
+                    documents = retrieved_documents[0].documents
+                    logger.info(
+                        f"Retrieved {len(documents)} documents for chunk {chunk_id + 1}")
+
+                    # Group documents by file path
+                    docs_by_file = {}
+                    for doc in documents:
+                        file_path = doc.meta_data.get('file_path', 'unknown')
+                        if file_path not in docs_by_file:
+                            docs_by_file[file_path] = []
+                        docs_by_file[file_path].append(doc)
+
+                    # Add context to query
+                    context_parts = []
+                    for file_path, docs in docs_by_file.items():
+                        header = f"## File Path: {file_path}\n\n"
+                        content = "\n\n".join([doc.text for doc in docs])
+                        context_parts.append(f"{header}{content}")
+
+                    context_text = "\n\n" + "-" * \
+                        10 + "\n\n".join(context_parts)
+                    chunk_query = f"<RELEVANT_SOURCE_FILES>\n{context_text}\n</RELEVANT_SOURCE_FILES>\n\n{chunk_query}"
+
+            except Exception as e:
+                logger.warning(
+                    f"RAG retrieval failed for chunk {chunk_id + 1}: {str(e)}")
+
+        # Get model configuration
+        model_config = get_model_config(request.provider, request.model)[
+            "model_kwargs"]
+
+        # Initialize the appropriate model client based on provider
+        if request.provider == "ollama":
+            from api.ollama_patch import OllamaClient
+            model = OllamaClient()
+            model_kwargs = {
+                "model": model_config["model"],
+                "stream": False,  # Non-streaming for chunk processing
+                "options": {
+                    "temperature": model_config["temperature"],
+                    "top_p": model_config["top_p"],
+                    "num_ctx": model_config["num_ctx"]
+                }
+            }
+            api_kwargs = model.convert_inputs_to_api_kwargs(
+                input=chunk_query,
+                model_kwargs=model_kwargs,
+                model_type=ModelType.LLM
+            )
+            api_kwargs["model"] = model_config["model"]
+
+        elif request.provider == "openrouter":
+            from api.openrouter_client import OpenRouterClient
+            model = OpenRouterClient()
+            model_kwargs = {
+                "model": request.model,
+                "stream": False,
+                "temperature": model_config["temperature"]
+            }
+            if "top_p" in model_config:
+                model_kwargs["top_p"] = model_config["top_p"]
+            api_kwargs = model.convert_inputs_to_api_kwargs(
+                input=chunk_query,
+                model_kwargs=model_kwargs,
+                model_type=ModelType.LLM
+            )
+
+        elif request.provider == "openai":
+            from api.openai_client import OpenAIClient
+            model = OpenAIClient()
+            model_kwargs = {
+                "model": request.model,
+                "stream": False,
+                "temperature": model_config["temperature"]
+            }
+            if "top_p" in model_config:
+                model_kwargs["top_p"] = model_config["top_p"]
+            api_kwargs = model.convert_inputs_to_api_kwargs(
+                input=chunk_query,
+                model_kwargs=model_kwargs,
+                model_type=ModelType.LLM
+            )
+        else:
+            # Fallback: use OpenAI-compatible endpoint
+            from api.openai_client import OpenAIClient
+            model = OpenAIClient()
+            model_kwargs = {
+                "model": request.model,
+                "stream": False,
+                "temperature": model_config.get("temperature", 0.7)
+            }
+            api_kwargs = model.convert_inputs_to_api_kwargs(
+                input=chunk_query,
+                model_kwargs=model_kwargs,
+                model_type=ModelType.LLM
+            )
+
+        # Call the model synchronously for chunk processing
+        import asyncio
+        response = asyncio.create_task(model.acall(
+            api_kwargs=api_kwargs, model_type=ModelType.LLM))
+        result = await response
+
+        # Collect the response
+        full_response = ""
+        async for chunk in result:
+            # Extract text based on response format
+            if hasattr(chunk, 'message') and hasattr(chunk.message, 'content'):
+                text = chunk.message.content
+            elif hasattr(chunk, 'response'):
+                text = chunk.response
+            elif hasattr(chunk, 'text'):
+                text = chunk.text
+            else:
+                text = str(chunk)
+
+            if text:
+                full_response += text
+
+        # Strip markdown code blocks if present
+        cleaned_response = full_response.strip()
+        if cleaned_response.startswith('```xml'):
+            cleaned_response = cleaned_response[6:]
+        elif cleaned_response.startswith('```'):
+            cleaned_response = cleaned_response[3:]
+        if cleaned_response.endswith('```'):
+            cleaned_response = cleaned_response[:-3]
+
+        logger.info(
+            f"Chunk {chunk_id + 1} processed successfully, response length: {len(cleaned_response)}")
+        return cleaned_response.strip()
+
+    except Exception as e:
+        logger.error(f"Error processing chunk {chunk_id + 1}: {str(e)}")
+        # Return a minimal valid XML structure on error
+        return f"""<partial_wiki chunk_id="{chunk_id}">
+  <note>Error processing chunk {chunk_id + 1}: {str(e)}</note>
+</partial_wiki>"""
+
+
+def merge_wiki_structures(partial_wikis: List[str]) -> str:
+    """
+    Merge multiple partial wiki structures into a single cohesive wiki.
+
+    Args:
+        partial_wikis: List of XML strings, each containing partial wiki structure
+
+    Returns:
+        Combined XML wiki structure
+    """
+    logger.info(f"Merging {len(partial_wikis)} partial wiki structures")
+
+    try:
+        from xml.etree import ElementTree as ET
+
+        # Parse all partial wikis
+        all_pages = []
+        all_sections = []
+        titles = []
+        descriptions = []
+
+        for i, partial_xml in enumerate(partial_wikis):
+            try:
+                # Parse the XML
+                root = ET.fromstring(partial_xml)
+
+                # Extract title and description
+                title_elem = root.find('title')
+                if title_elem is not None and title_elem.text:
+                    titles.append(title_elem.text)
+
+                desc_elem = root.find('description')
+                if desc_elem is not None and desc_elem.text:
+                    descriptions.append(desc_elem.text)
+
+                # Extract pages
+                pages_elem = root.find('pages')
+                if pages_elem is not None:
+                    for page in pages_elem.findall('page'):
+                        # Add chunk information to page
+                        page.set('source_chunk', str(i + 1))
+                        all_pages.append(page)
+
+                # Extract sections if present
+                sections_elem = root.find('sections')
+                if sections_elem is not None:
+                    for section in sections_elem.findall('section'):
+                        section.set('source_chunk', str(i + 1))
+                        all_sections.append(section)
+
+            except ET.ParseError as e:
+                logger.error(f"Failed to parse partial wiki {i + 1}: {str(e)}")
+                continue
+
+        # Deduplicate pages by ID
+        unique_pages = {}
+        for page in all_pages:
+            page_id = page.get('id', f'page-{len(unique_pages) + 1}')
+            if page_id not in unique_pages:
+                unique_pages[page_id] = page
+            else:
+                # Merge information if duplicate found
+                logger.debug(
+                    f"Duplicate page ID found: {page_id}, keeping first occurrence")
+
+        # Build merged structure
+        merged_root = ET.Element('wiki_structure')
+
+        # Use first non-empty title or generate one
+        title_elem = ET.SubElement(merged_root, 'title')
+        title_elem.text = titles[0] if titles else "Repository Documentation"
+
+        # Combine descriptions
+        desc_elem = ET.SubElement(merged_root, 'description')
+        if descriptions:
+            # Use first description as primary
+            desc_elem.text = descriptions[0]
+        else:
+            desc_elem.text = "Comprehensive documentation generated from repository analysis"
+
+        # Add sections if any were found
+        if all_sections:
+            sections_container = ET.SubElement(merged_root, 'sections')
+            for section in all_sections:
+                sections_container.append(section)
+
+        # Add all unique pages
+        pages_container = ET.SubElement(merged_root, 'pages')
+        for page_id, page in unique_pages.items():
+            pages_container.append(page)
+
+        # Convert back to string with proper formatting
+        xml_string = ET.tostring(merged_root, encoding='unicode', method='xml')
+
+        logger.info(
+            f"Successfully merged {len(partial_wikis)} wikis into {len(unique_pages)} unique pages")
+        return xml_string
+
+    except Exception as e:
+        logger.error(f"Error merging wiki structures: {str(e)}")
+
+        # Fallback: Simple concatenation with wrapper
+        merged = "<wiki_structure>\n"
+        merged += "  <title>Repository Documentation</title>\n"
+        merged += "  <description>Combined documentation from multiple repository sections</description>\n"
+        merged += "  <pages>\n"
+
+        # Try to extract individual pages from each partial
+        page_counter = 1
+        for i, partial in enumerate(partial_wikis):
+            try:
+                # Simple extraction of page elements
+                if '<page' in partial:
+                    # Extract pages section
+                    import re
+                    pages = re.findall(
+                        r'<page[^>]*>.*?</page>', partial, re.DOTALL)
+                    for page in pages:
+                        # Ensure page has an ID
+                        if 'id=' not in page:
+                            page = page.replace(
+                                '<page', f'<page id="page-{page_counter}"', 1)
+                            page_counter += 1
+                        merged += f"    {page}\n"
+            except Exception as e:
+                logger.error(
+                    f"Error extracting pages from chunk {i + 1}: {str(e)}")
+                # Add error note
+                merged += f'    <page id="chunk-{i+1}-error">\n'
+                merged += f'      <title>Chunk {i+1} Processing Note</title>\n'
+                merged += f'      <description>Could not merge chunk {i+1} properly</description>\n'
+                merged += f'      <importance>low</importance>\n'
+                merged += f'    </page>\n'
+
+        merged += "  </pages>\n"
+        merged += "</wiki_structure>"
+
+        return merged
+
+
+async def handle_chunked_wiki_generation(
+    websocket: WebSocket,
+    repo_path: str,
+    request: ChatCompletionRequest
+) -> None:
+    """
+    Handle wiki generation for large repositories using chunked processing.
+
+    This function:
+    1. Fetches repository structure with chunking enabled
+    2. Processes each chunk separately with RAG
+    3. Merges partial results into final wiki structure
+    4. Sends progress updates via WebSocket
+
+    Args:
+        websocket: Active WebSocket connection
+        repo_path: Path to the repository
+        request: Original chat completion request
+    """
+    try:
+        logger.info(f"Starting chunked wiki generation for {repo_path}")
+        await websocket.send_text("🔄 Analyzing large repository structure...\n")
+
+        # Call get_local_repo_structure directly instead of making HTTP request
+        repo_info = await get_local_repo_structure(
+            path=repo_path,
+            return_chunks=True,
+            chunk_size=500
+        )
+
+        if not repo_info.get('chunked'):
+            # Small repo, process normally
+            await websocket.send_text("Repository is small enough to process in one go.\n")
+            return
+
+        chunks = repo_info.get('chunks', [])
+        readme = repo_info.get('readme', '')
+        total_files = repo_info.get('total_files', 0)
+
+        await websocket.send_text(f"📊 Repository has {total_files} files split into {len(chunks)} chunks\n")
+        await websocket.send_text("🔍 Processing each chunk with RAG...\n\n")
+
+        partial_wikis = []
+        for i, chunk in enumerate(chunks):
+            await websocket.send_text(f"⏳ Chunk {i + 1}/{len(chunks)}: {chunk['file_count']} files from {len(chunk['directories'])} directories\n")
+
+            # Process this chunk
+            partial_wiki = await process_wiki_chunk(chunk, i, len(chunks), request, readme)
+            partial_wikis.append(partial_wiki)
+
+            await websocket.send_text(f"✅ Completed chunk {i + 1}/{len(chunks)}\n\n")
+
+        await websocket.send_text("🔗 Merging all chunks into final wiki structure...\n")
+
+        # Merge all partial wikis
+        final_wiki = merge_wiki_structures(partial_wikis)
+
+        await websocket.send_text("\n📝 Final wiki structure:\n\n")
+        await websocket.send_text(final_wiki)
+
+        logger.info("Chunked wiki generation completed successfully")
+
+    except Exception as e:
+        logger.error(f"Error in chunked wiki generation: {str(e)}")
+        await websocket.send_text(f"\n❌ Error: {str(e)}\n")
+    finally:
+        await websocket.close()

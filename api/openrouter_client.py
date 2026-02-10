@@ -151,11 +151,14 @@ class OpenRouterClient(ModelClient):
 
                 async with aiohttp.ClientSession() as session:
                     try:
+                        # Use longer timeout for complex wiki generation tasks
+                        # Some models need 3-5 minutes for large context processing
+                        timeout = aiohttp.ClientTimeout(total=300)  # 5 minutes
                         async with session.post(
                             f"{self.async_client['base_url']}/chat/completions",
                             headers=headers,
                             json=api_kwargs,
-                            timeout=60
+                            timeout=timeout
                         ) as response:
                             if response.status != 200:
                                 error_text = await response.text()
@@ -360,33 +363,37 @@ class OpenRouterClient(ModelClient):
 
                             return content_generator()
                     except aiohttp.ClientError as e:
-                        e_client = e
+                        import traceback
+                        error_details = f"{type(e).__name__}: {str(e)}"
                         log.error(
-                            f"Connection error with OpenRouter API: {str(e_client)}")
+                            f"Connection error with OpenRouter API: {error_details}\n{traceback.format_exc()}")
 
                         # Return a generator that yields the error message
                         async def connection_error_generator():
-                            yield f"Connection error with OpenRouter API: {str(e_client)}. Please check your internet connection and that the OpenRouter API is accessible."
+                            yield f"Connection error with OpenRouter API: {error_details}. Please check your internet connection and that the OpenRouter API is accessible."
                         return connection_error_generator()
 
             except RequestException as e:
-                e_req = e
+                import traceback
+                error_details = f"{type(e).__name__}: {str(e)}"
                 log.error(
-                    f"Error calling OpenRouter API asynchronously: {str(e_req)}")
+                    f"Error calling OpenRouter API asynchronously: {error_details}\n{traceback.format_exc()}")
 
                 # Return a generator that yields the error message
                 async def request_error_generator():
-                    yield f"Error calling OpenRouter API: {str(e_req)}"
+                    yield f"Error calling OpenRouter API: {error_details}"
                 return request_error_generator()
 
             except Exception as e:
-                e_unexp = e
+                import traceback
+                error_details = f"{type(e).__name__}: {str(e)}"
+                traceback_str = traceback.format_exc()
                 log.error(
-                    f"Unexpected error calling OpenRouter API asynchronously: {str(e_unexp)}")
+                    f"Unexpected error calling OpenRouter API asynchronously: {error_details}\n{traceback_str}")
 
                 # Return a generator that yields the error message
                 async def unexpected_error_generator():
-                    yield f"Unexpected error calling OpenRouter API: {str(e_unexp)}"
+                    yield f"Unexpected error calling OpenRouter API: {error_details}"
                 return unexpected_error_generator()
 
         else:

@@ -1,5 +1,5 @@
 {
-  "default_provider": "google",
+  "default_provider": "openrouter",
   "providers": {
     "dashscope": {
       "default_model": "qwen-plus",
@@ -20,15 +20,15 @@
       }
     },
     "google": {
-      "default_model": "gemini-2.5-flash",
+      "default_model": "gemini-3-flash-preview",
       "supportsCustomModel": true,
       "models": {
-        "gemini-2.5-flash": {
+        "gemini-3-flash-preview": {
           "temperature": 1.0,
           "top_p": 0.8,
           "top_k": 20
         },
-        "gemini-2.5-flash-lite": {
+        "gemma-3-27b": {
           "temperature": 1.0,
           "top_p": 0.8,
           "top_k": 20
@@ -93,15 +93,15 @@
           "temperature": 0.7,
           "top_p": 0.8
         },
-        "openai/o1": {
+        "z-ai/glm-4.6": {
           "temperature": 0.7,
           "top_p": 0.8
         },
-        "openai/o3": {
-          "temperature": 1.0
+        "mistralai/mistral-nemo": {
+          "temperature": 0.4
         },
-        "openai/o4-mini": {
-          "temperature": 1.0
+        "microsoft/phi-4": {
+          "temperature": 0.4
         },
         "anthropic/claude-3.7-sonnet": {
           "temperature": 0.7,
@@ -137,6 +137,91 @@
             "top_p": 0.8,
             "num_ctx": 32000
           }
+        }
+      }
+    },
+    "mistral": {
+      "client_class": "MistralClient",
+      "default_model": "mistral-large-latest",
+      "supportsCustomModel": false,
+      "models": {
+        "mistral-large-latest": {
+          "temperature": 0.7,
+          "top_p": 0.8
+        },
+        "mistral-medium-latest": {
+          "temperature": 0.7,
+          "top_p": 0.8
+        },
+        "mistral-small-latest": {
+          "temperature": 0.7,
+          "top_p": 0.8
+        },
+        "open-mistral-7b": {
+          "temperature": 0.7,
+          "top_p": 0.8
+        },
+        "open-mixtral-8x7b": {
+          "temperature": 0.7,
+          "top_p": 0.8
+        },
+        "open-mixtral-8x22b": {
+          "temperature": 0.7,
+          "top_p": 0.8
+        }
+      }
+    },
+    "groq": {
+      "client_class": "GroqClient",
+      "default_model": "llama-3.3-70b-versatile",
+      "supportsCustomModel": false,
+      "models": {
+        "llama-3.3-70b-versatile": {
+          "temperature": 0.7,
+          "top_p": 0.8
+        },
+        "llama-3.1-70b-versatile": {
+          "temperature": 0.7,
+          "top_p": 0.8
+        },
+        "llama-3.1-8b-instant": {
+          "temperature": 0.7,
+          "top_p": 0.8
+        },
+        "mixtral-8x7b-32768": {
+          "temperature": 0.7,
+          "top_p": 0.8
+        },
+        "gemma2-9b-it": {
+          "temperature": 0.7,
+          "top_p": 0.8
+        }
+      }
+    },
+    "huggingface": {
+      "client_class": "HuggingFaceClient",
+      "default_model": "meta-llama/Llama-3.3-70B-Instruct",
+      "supportsCustomModel": true,
+      "models": {
+        "meta-llama/Llama-3.3-70B-Instruct": {
+          "temperature": 0.7,
+          "top_p": 0.9
+        },
+        "mistralai/Mistral-7B-Instruct-v0.3": {
+          "temperature": 0.7,
+          "top_p": 0.9
+        },
+        "google/gemma-2-9b-it": {
+          "temperature": 0.7,
+          "top_p": 0.9
+        },
+        "Qwen/Qwen2.5-72B-Instruct": {
+          "temperature": 0.7,
+          "top_p": 0.9
+        },
+        "microsoft/Phi-3-mini-4k-instruct": {
+          "temperature": 0.7,
+          "top_p": 0.9
         }
       }
     },
@@ -196,4 +281,3 @@
     }
   }
 }
-

@@ -1,0 +1,674 @@
+{
+  "updated_at": "2026-02-10T11:35:37.085244381-05:00",
+  "file_count": 149,
+  "hubs": [
+    "api/openrouter_client.py",
+    "api/azureai_client.py",
+    "api/tools/embedder.py",
+    "api/rag.py",
+    "api/ollama_patch.py",
+    "api/openai_client.py",
+    "api/prompts.py",
+    "api/google_embedder_client.py",
+    "api/config.py",
+    "api/data_pipeline.py",
+    "api/logging_config.py"
+  ],
+  "importers": {
+    "api/api.py": [
+      "api/main.py"
+    ],
+    "api/azureai_client.py": [
+      "api/config.py",
+      "api/simple_chat.py",
+      "api/websocket_wiki.py"
+    ],
+    "api/bedrock_client.py": [
+      "api/config.py",
+      "api/simple_chat.py"
+    ],
+    "api/config.py": [
+      "api/bedrock_client.py",
+      "api/tools/embedder.py",
+      "tests/unit/test_all_embedders.py",
+      "api/openrouter_client.py",
+      "api/rag.py",
+      "api/simple_chat.py",
+      "api/data_pipeline.py",
+      "api/repo_utils.py",
+      "api/websocket_wiki.py",
+      "tests/integration/test_full_integration.py",
+      "api/main.py",
+      "api/api.py"
+    ],
+    "api/dashscope_client.py": [
+      "api/config.py",
+      "api/websocket_wiki.py"
+    ],
+    "api/data_pipeline.py": [
+      "test/test_extract_repo_name.py",
+      "tests/unit/test_all_embedders.py",
+      "api/rag.py",
+      "api/simple_chat.py",
+      "api/websocket_wiki.py"
+    ],
+    "api/google_embedder_client.py": [
+      "api/config.py",
+      "tests/unit/test_all_embedders.py",
+      "tests/unit/test_google_embedder.py"
+    ],
+    "api/logging_config.py": [
+      "api/bedrock_client.py",
+      "api/ollama_patch.py",
+      "api/simple_chat.py",
+      "api/dashscope_client.py",
+      "api/websocket_wiki.py",
+      "api/main.py",
+      "api/api.py"
+    ],
+    "api/ollama_patch.py": [
+      "api/rag.py",
+      "api/data_pipeline.py",
+      "api/websocket_wiki.py"
+    ],
+    "api/openai_client.py": [
+      "api/config.py",
+      "tests/unit/test_all_embedders.py",
+      "api/simple_chat.py",
+      "api/websocket_wiki.py"
+    ],
+    "api/openrouter_client.py": [
+      "api/config.py",
+      "api/simple_chat.py",
+      "api/websocket_wiki.py"
+    ],
+    "api/prompts.py": [
+      "api/rag.py",
+      "api/simple_chat.py",
+      "api/websocket_wiki.py"
+    ],
+    "api/rag.py": [
+      "tests/unit/test_all_embedders.py",
+      "api/simple_chat.py",
+      "api/websocket_wiki.py"
+    ],
+    "api/repo_utils.py": [
+      "api/websocket_wiki.py",
+      "api/api.py"
+    ],
+    "api/simple_chat.py": [
+      "api/api.py"
+    ],
+    "api/tools/embedder.py": [
+      "tests/unit/test_all_embedders.py",
+      "api/rag.py",
+      "api/data_pipeline.py",
+      "tests/unit/test_google_embedder.py",
+      "tests/integration/test_full_integration.py"
+    ],
+    "api/websocket_wiki.py": [
+      "api/api.py"
+    ],
+    "public/next.svg": [
+      "next.config.ts"
+    ],
+    "pytest.ini": [
+      "test/test_extract_repo_name.py"
+    ]
+  },
+  "imports": {
+    "api/api.py": [
+      "api/config.py",
+      "api/websocket_wiki.py",
+      "api/simple_chat.py",
+      "api/repo_utils.py",
+      "api/logging_config.py"
+    ],
+    "api/bedrock_client.py": [
+      "api/logging_config.py",
+      "api/config.py"
+    ],
+    "api/config.py": [
+      "api/openai_client.py",
+      "api/openrouter_client.py",
+      "api/bedrock_client.py",
+      "api/google_embedder_client.py",
+      "api/azureai_client.py",
+      "api/dashscope_client.py"
+    ],
+    "api/dashscope_client.py": [
+      "api/logging_config.py"
+    ],
+    "api/data_pipeline.py": [
+      "api/config.py",
+      "api/ollama_patch.py",
+      "api/tools/embedder.py"
+    ],
+    "api/main.py": [
+      "api/logging_config.py",
+      "api/config.py",
+      "api/api.py"
+    ],
+    "api/ollama_patch.py": [
+      "api/logging_config.py"
+    ],
+    "api/openrouter_client.py": [
+      "api/config.py"
+    ],
+    "api/rag.py": [
+      "api/tools/embedder.py",
+      "api/prompts.py",
+      "api/config.py",
+      "api/data_pipeline.py",
+      "api/ollama_patch.py"
+    ],
+    "api/repo_utils.py": [
+      "api/config.py"
+    ],
+    "api/simple_chat.py": [
+      "api/config.py",
+      "api/data_pipeline.py",
+      "api/openai_client.py",
+      "api/openrouter_client.py",
+      "api/bedrock_client.py",
+      "api/azureai_client.py",
+      "api/rag.py",
+      "api/prompts.py",
+      "api/logging_config.py"
+    ],
+    "api/tools/embedder.py": [
+      "api/config.py"
+    ],
+    "api/websocket_wiki.py": [
+      "api/repo_utils.py",
+      "api/config.py",
+      "api/data_pipeline.py",
+      "api/openai_client.py",
+      "api/openrouter_client.py",
+      "api/azureai_client.py",
+      "api/dashscope_client.py",
+      "api/prompts.py",
+      "api/rag.py",
+      "api/logging_config.py",
+      "api/ollama_patch.py"
+    ],
+    "next.config.ts": [
+      "public/next.svg"
+    ],
+    "test/test_extract_repo_name.py": [
+      "pytest.ini",
+      "api/data_pipeline.py"
+    ],
+    "tests/integration/test_full_integration.py": [
+      "api/config.py",
+      "api/tools/embedder.py"
+    ],
+    "tests/unit/test_all_embedders.py": [
+      "api/config.py",
+      "api/tools/embedder.py",
+      "api/google_embedder_client.py",
+      "api/openai_client.py",
+      "api/data_pipeline.py",
+      "api/rag.py"
+    ],
+    "tests/unit/test_google_embedder.py": [
+      "api/google_embedder_client.py",
+      "api/tools/embedder.py"
+    ]
+  },
+  "recent_events": [
+    {
+      "time": "2026-02-10T09:32:34.721963475-05:00",
+      "op": "CREATE",
+      "path": "api/provider_validator.py",
+      "lang": "python",
+      "lines": 391,
+      "delta": 391,
+      "size_delta": 13175
+    },
+    {
+      "time": "2026-02-10T09:32:53.27928733-05:00",
+      "op": "CREATE",
+      "path": "api/validators/__init__.py",
+      "lang": "python",
+      "lines": 11,
+      "delta": 11,
+      "size_delta": 356
+    },
+    {
+      "time": "2026-02-10T09:33:09.342467703-05:00",
+      "op": "CREATE",
+      "path": "api/validators/openrouter_validator.py",
+      "lang": "python",
+      "lines": 126,
+      "delta": 126,
+      "size_delta": 4101
+    },
+    {
+      "time": "2026-02-10T09:33:35.330133884-05:00",
+      "op": "CREATE",
+      "path": "api/validators/google_validator.py",
+      "lang": "python",
+      "lines": 131,
+      "delta": 131,
+      "size_delta": 4384
+    },
+    {
+      "time": "2026-02-10T09:33:56.310567657-05:00",
+      "op": "CREATE",
+      "path": "api/validators/ollama_validator.py",
+      "lang": "python",
+      "lines": 128,
+      "delta": 128,
+      "size_delta": 4394
+    },
+    {
+      "time": "2026-02-10T09:34:35.797337208-05:00",
+      "op": "CREATE",
+      "path": "api/mistral_client.py",
+      "lang": "python",
+      "lines": 249,
+      "delta": 249,
+      "size_delta": 8383
+    },
+    {
+      "time": "2026-02-10T09:34:57.978230726-05:00",
+      "op": "CREATE",
+      "path": "api/groq_client.py",
+      "lang": "python",
+      "lines": 248,
+      "delta": 248,
+      "size_delta": 8282
+    },
+    {
+      "time": "2026-02-10T09:35:28.94399526-05:00",
+      "op": "CREATE",
+      "path": "api/huggingface_client.py",
+      "lang": "python",
+      "lines": 305,
+      "delta": 305,
+      "size_delta": 10827
+    },
+    {
+      "time": "2026-02-10T09:35:55.032763141-05:00",
+      "op": "CREATE",
+      "path": "api/validators/mistral_validator.py",
+      "lang": "python",
+      "lines": 128,
+      "delta": 128,
+      "size_delta": 4068
+    },
+    {
+      "time": "2026-02-10T09:36:07.672117994-05:00",
+      "op": "CREATE",
+      "path": "api/validators/groq_validator.py",
+      "lang": "python",
+      "lines": 127,
+      "delta": 127,
+      "size_delta": 3921
+    },
+    {
+      "time": "2026-02-10T09:36:25.275179148-05:00",
+      "op": "CREATE",
+      "path": "api/validators/huggingface_validator.py",
+      "lang": "python",
+      "lines": 155,
+      "delta": 155,
+      "size_delta": 4940
+    },
+    {
+      "time": "2026-02-10T09:36:31.84117644-05:00",
+      "op": "CREATE",
+      "path": "api/validators/__init__.py",
+      "lang": "python",
+      "lines": 17,
+      "delta": 6,
+      "size_delta": 261
+    },
+    {
+      "time": "2026-02-10T09:37:14.815436476-05:00",
+      "op": "CREATE",
+      "path": "api/config.py",
+      "lang": "python",
+      "lines": 390,
+      "delta": 3,
+      "size_delta": 137,
+      "dirty": true,
+      "importers": 12,
+      "imports": 6,
+      "is_hub": true
+    },
+    {
+      "time": "2026-02-10T09:37:20.977030467-05:00",
+      "op": "CREATE",
+      "path": "api/config.py",
+      "lang": "python",
+      "lines": 393,
+      "delta": 3,
+      "size_delta": 110,
+      "dirty": true,
+      "importers": 12,
+      "imports": 6,
+      "is_hub": true
+    },
+    {
+      "time": "2026-02-10T09:37:30.00808188-05:00",
+      "op": "CREATE",
+      "path": "api/config.py",
+      "lang": "python",
+      "lines": 396,
+      "delta": 3,
+      "size_delta": 158,
+      "dirty": true,
+      "importers": 12,
+      "imports": 6,
+      "is_hub": true
+    },
+    {
+      "time": "2026-02-10T09:37:38.015767644-05:00",
+      "op": "CREATE",
+      "path": "api/config.py",
+      "lang": "python",
+      "lines": 402,
+      "delta": 6,
+      "size_delta": 219,
+      "dirty": true,
+      "importers": 12,
+      "imports": 6,
+      "is_hub": true
+    },
+    {
+      "time": "2026-02-10T09:38:09.221230142-05:00",
+      "op": "CREATE",
+      "path": "api/api.py",
+      "lang": "python",
+      "lines": 713,
+      "delta": 9,
+      "size_delta": 225,
+      "dirty": true,
+      "importers": 1,
+      "imports": 5,
+      "related_hot": [
+        "api/config.py"
+      ]
+    },
+    {
+      "time": "2026-02-10T09:38:24.238269719-05:00",
+      "op": "CREATE",
+      "path": "api/api.py",
+      "lang": "python",
+      "lines": 727,
+      "delta": 14,
+      "size_delta": 691,
+      "dirty": true,
+      "importers": 1,
+      "imports": 5,
+      "related_hot": [
+        "api/config.py"
+      ]
+    },
+    {
+      "time": "2026-02-10T09:38:41.730102447-05:00",
+      "op": "CREATE",
+      "path": "api/api.py",
+      "lang": "python",
+      "lines": 758,
+      "delta": 31,
+      "size_delta": 1868,
+      "dirty": true,
+      "importers": 1,
+      "imports": 5,
+      "related_hot": [
+        "api/config.py"
+      ]
+    },
+    {
+      "time": "2026-02-10T09:39:07.702623395-05:00",
+      "op": "CREATE",
+      "path": "api/api.py",
+      "lang": "python",
+      "lines": 871,
+      "delta": 113,
+      "size_delta": 3890,
+      "dirty": true,
+      "importers": 1,
+      "imports": 5,
+      "related_hot": [
+        "api/config.py"
+      ]
+    },
+    {
+      "time": "2026-02-10T09:39:44.446752294-05:00",
+      "op": "CREATE",
+      "path": "src/components/UserSelector.tsx",
+      "lang": "typescript",
+      "lines": 577,
+      "delta": 55,
+      "size_delta": 1638,
+      "dirty": true
+    },
+    {
+      "time": "2026-02-10T09:39:59.225979905-05:00",
+      "op": "CREATE",
+      "path": "src/components/UserSelector.tsx",
+      "lang": "typescript",
+      "lines": 606,
+      "delta": 29,
+      "size_delta": 1643,
+      "dirty": true
+    },
+    {
+      "time": "2026-02-10T09:40:36.425921835-05:00",
+      "op": "CREATE",
+      "path": "tests/unit/test_provider_validator.py",
+      "lang": "python",
+      "lines": 242,
+      "delta": 242,
+      "size_delta": 8214
+    },
+    {
+      "time": "2026-02-10T09:51:03.539593742-05:00",
+      "op": "CREATE",
+      "path": "api/provider_validator.py",
+      "lang": "python",
+      "lines": 392,
+      "delta": 1,
+      "size_delta": 14
+    },
+    {
+      "time": "2026-02-10T09:51:08.667892409-05:00",
+      "op": "CREATE",
+      "path": "api/validators/openrouter_validator.py",
+      "lang": "python",
+      "lines": 129,
+      "delta": 3,
+      "size_delta": 16
+    },
+    {
+      "time": "2026-02-10T09:51:13.269743835-05:00",
+      "op": "CREATE",
+      "path": "api/validators/google_validator.py",
+      "lang": "python",
+      "lines": 133,
+      "delta": 2,
+      "size_delta": 15
+    },
+    {
+      "time": "2026-02-10T09:51:18.52910669-05:00",
+      "op": "CREATE",
+      "path": "api/validators/ollama_validator.py",
+      "lang": "python",
+      "lines": 130,
+      "delta": 2,
+      "size_delta": 15
+    },
+    {
+      "time": "2026-02-10T09:51:32.927832294-05:00",
+      "op": "CREATE",
+      "path": "api/validators/mistral_validator.py",
+      "lang": "python",
+      "lines": 130,
+      "delta": 2,
+      "size_delta": 15
+    },
+    {
+      "time": "2026-02-10T09:51:38.580974793-05:00",
+      "op": "CREATE",
+      "path": "api/validators/groq_validator.py",
+      "lang": "python",
+      "lines": 129,
+      "delta": 2,
+      "size_delta": 15
+    },
+    {
+      "time": "2026-02-10T09:51:47.604827228-05:00",
+      "op": "CREATE",
+      "path": "api/validators/huggingface_validator.py",
+      "lang": "python",
+      "lines": 157,
+      "delta": 2,
+      "size_delta": 15
+    },
+    {
+      "time": "2026-02-10T09:54:57.821917912-05:00",
+      "op": "CREATE",
+      "path": "next.config.ts",
+      "lang": "typescript",
+      "lines": 83,
+      "delta": 13,
+      "size_delta": 424,
+      "dirty": true,
+      "imports": 1
+    },
+    {
+      "time": "2026-02-10T09:55:19.108797833-05:00",
+      "op": "CREATE",
+      "path": "src/app/api/models/config/route.ts",
+      "lang": "typescript",
+      "lines": 56,
+      "delta": 8,
+      "size_delta": 324,
+      "dirty": true
+    },
+    {
+      "time": "2026-02-10T09:55:56.583583532-05:00",
+      "op": "CREATE",
+      "path": "src/app/api/providers/refresh/route.ts",
+      "lang": "typescript",
+      "lines": 66,
+      "delta": 66,
+      "size_delta": 1934
+    },
+    {
+      "time": "2026-02-10T09:56:07.585212376-05:00",
+      "op": "CREATE",
+      "path": "next.config.ts",
+      "lang": "typescript",
+      "lines": 70,
+      "delta": -13,
+      "size_delta": -424,
+      "imports": 1
+    },
+    {
+      "time": "2026-02-10T09:56:27.55106342-05:00",
+      "op": "CREATE",
+      "path": "src/components/UserSelector.tsx",
+      "lang": "typescript",
+      "lines": 607,
+      "delta": 1,
+      "size_delta": 111,
+      "dirty": true
+    },
+    {
+      "time": "2026-02-10T10:14:02.533406637-05:00",
+      "op": "CREATE",
+      "path": "api/validators/google_validator.py",
+      "lang": "python",
+      "lines": 149,
+      "delta": 16,
+      "size_delta": 787
+    },
+    {
+      "time": "2026-02-10T10:14:10.753107435-05:00",
+      "op": "CREATE",
+      "path": "api/validators/google_validator.py",
+      "lang": "python",
+      "lines": 157,
+      "delta": 8,
+      "size_delta": 370
+    },
+    {
+      "time": "2026-02-10T10:22:58.328328775-05:00",
+      "op": "CREATE",
+      "path": "api/google_embedder_client.py",
+      "lang": "python",
+      "lines": 244,
+      "delta": 2,
+      "size_delta": 133,
+      "dirty": true,
+      "importers": 3,
+      "is_hub": true
+    },
+    {
+      "time": "2026-02-10T10:23:11.678682624-05:00",
+      "op": "CREATE",
+      "path": "api/google_embedder_client.py",
+      "lang": "python",
+      "lines": 244,
+      "size_delta": -5,
+      "dirty": true,
+      "importers": 3,
+      "is_hub": true
+    },
+    {
+      "time": "2026-02-10T10:23:17.902581996-05:00",
+      "op": "CREATE",
+      "path": "api/google_embedder_client.py",
+      "lang": "python",
+      "lines": 244,
+      "size_delta": -13,
+      "dirty": true,
+      "importers": 3,
+      "is_hub": true
+    },
+    {
+      "time": "2026-02-10T11:11:31.240716266-05:00",
+      "op": "CREATE",
+      "path": "api/openrouter_client.py",
+      "lang": "python",
+      "lines": 584,
+      "delta": 2,
+      "size_delta": 143,
+      "dirty": true,
+      "importers": 3,
+      "imports": 1,
+      "is_hub": true
+    },
+    {
+      "time": "2026-02-10T11:11:40.310602185-05:00",
+      "op": "CREATE",
+      "path": "api/openrouter_client.py",
+      "lang": "python",
+      "lines": 586,
+      "delta": 2,
+      "size_delta": 205,
+      "dirty": true,
+      "importers": 3,
+      "imports": 1,
+      "is_hub": true
+    },
+    {
+      "time": "2026-02-10T11:35:37.079752893-05:00",
+      "op": "CREATE",
+      "path": "api/openrouter_client.py",
+      "lang": "python",
+      "lines": 589,
+      "delta": 3,
+      "size_delta": 248,
+      "dirty": true,
+      "importers": 3,
+      "imports": 1,
+      "is_hub": true
+    }
+  ]
+}

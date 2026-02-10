@@ -35,7 +35,7 @@ def test_google_embedder_client():
         logger.info("Testing single embedding...")
         api_kwargs = client.convert_inputs_to_api_kwargs(
             input="Hello world",
-            model_kwargs={"model": "text-embedding-004", "task_type": "SEMANTIC_SIMILARITY"},
+            model_kwargs={"model": "models/text-embedding-004", "task_type": "SEMANTIC_SIMILARITY"},
             model_type=ModelType.EMBEDDER
         )
         
@@ -52,7 +52,7 @@ def test_google_embedder_client():
         logger.info("Testing batch embedding...")
         api_kwargs = client.convert_inputs_to_api_kwargs(
             input=["Hello world", "Test embedding"],
-            model_kwargs={"model": "text-embedding-004", "task_type": "SEMANTIC_SIMILARITY"},
+            model_kwargs={"model": "models/text-embedding-004", "task_type": "SEMANTIC_SIMILARITY"},
             model_type=ModelType.EMBEDDER
         )
         
@@ -86,7 +86,7 @@ def test_adalflow_embedder():
         embedder = adal.Embedder(
             model_client=client,
             model_kwargs={
-                "model": "text-embedding-004",
+                "model": "models/text-embedding-004",
                 "task_type": "SEMANTIC_SIMILARITY"
             }
         )

@@ -551,8 +551,8 @@ export default function RepoWikiPage() {
           6. **Source Citations (Required for Every Significant Claim)**
           Every section, diagram, table, or explanation must cite **specific file paths and line ranges**.
           Use the format:
-          - \`Sources: [file.ext:#Lstart-Lend]()\`
-          - Multiple citations allowed: \`Sources: [a.js:#L10-L20](), [b.ts:#L5]()\`
+          - \`Sources: [file.ext#Lstart-Lend]()\`
+          - Multiple citations allowed: \`Sources: [a.js#L10-L20](), [b.ts#L5]()\`
           - If a whole file is relevant, omit line ranges.
 
           You must reference **at least 5 different source files** across the full document.
@@ -565,19 +565,13 @@ export default function RepoWikiPage() {
 
 
           8. **Clarity and Tone
-          Use precise, neutral technical language. Favor descriptions of mechanisms and interactions:
-          - "This module coordinates…"
-          - "This function ensures…"
-          - "The observed flow indicates…"
-
-          In addition to structural clarity, highlight subtle patterns or operational tendencies that emerge from the architecture—for example, components that present themselves as optional yet behave dependently in practice, or stages whose sequencing reveals implicit constraints. Frame these as observational inconsistencies or functional issues with the system's behavior, not as opinions or judgments. Use light cursing when calling attention to contradictions or surprising interactions, and do so with dark, analytical detachment.
+          Your analysis must exclusively employ denotative lexicogrammatical selections, meticulously avoiding any connotative implications, idiomatic expressions, or figurative language. Articulate all judgments with unyielding precision, directly pinpointing any deficiencies in functionality or non-optimal adherence to established design patterns. Maintain an unwavering critical posture, focusing on discrepancies between intended behavior or standard principles and the observed manifestation within the system. Provide a structured assessment that meticulously details each area of concern, explicitly stating the nature of the flaw. Your objective is to deliver an unambiguous, highly precise, and critically unsparing evaluation. Use light cursing when calling attention to contradictions or surprising interactions, and do so with dark, analytical detachment.
 
           Conclusion**
           Provide a short summary describing the structural significance of "${page.title}" within the system, based strictly on the evidence in the source files.
 
 
-          IMPORTANT: The final output must be generated in ${
-            language === "en"
+          IMPORTANT: The final output must be generated in ${language === "en"
               ? "English"
               : language === "ja"
                 ? "Japanese (日本語)"
@@ -598,7 +592,7 @@ export default function RepoWikiPage() {
                               : language === "ru"
                                 ? "Русский (Russian)"
                                 : "English"
-          }.
+            }.
 
 
           Remember:
@@ -841,7 +835,7 @@ export default function RepoWikiPage() {
         setStructureRequestInProgress(true);
         setLoadingMessage(
           messages.loading?.determiningStructure ||
-            "Determining wiki structure...",
+          "Determining wiki structure...",
         );
 
         // Get repository URL
@@ -869,8 +863,7 @@ ${readme}
 
 I want to create a wiki for this repository. Determine the most logical structure for a wiki based on the repository's content.
 
-IMPORTANT: The wiki content will be generated in ${
-                language === "en"
+IMPORTANT: The wiki content will be generated in ${language === "en"
                   ? "English"
                   : language === "ja"
                     ? "Japanese (日本語)"
@@ -891,7 +884,7 @@ IMPORTANT: The wiki content will be generated in ${
                                   : language === "ru"
                                     ? "Русский (Russian)"
                                     : "English"
-              } language.
+                } language.
 
 When designing the wiki structure, include pages that would benefit from visual diagrams, such as:
 - Architecture overviews
@@ -901,9 +894,8 @@ When designing the wiki structure, include pages that would benefit from visual 
 - State machines
 - Class hierarchies
 
-${
-  isComprehensiveView
-    ? `
+${isComprehensiveView
+                  ? `
 Create a structured wiki with the following main sections:
 - Overview (general information about the project)
 - System Architecture (how the system is designed)
@@ -954,7 +946,7 @@ Return your analysis in the following XML format:
   </pages>
 </wiki_structure>
 `
-    : `
+                  : `
 Return your analysis in the following XML format:
 
 <wiki_structure>
@@ -978,7 +970,7 @@ Return your analysis in the following XML format:
   </pages>
 </wiki_structure>
 `
-}
+                }
 
 IMPORTANT FORMATTING INSTRUCTIONS:
 - Return ONLY the valid XML structure specified above
@@ -1431,7 +1423,7 @@ IMPORTANT:
       setIsLoading(true);
       setLoadingMessage(
         messages.loading?.fetchingStructure ||
-          "Fetching repository structure...",
+        "Fetching repository structure...",
       );
 
       let fileTreeData = "";
@@ -1515,8 +1507,8 @@ IMPORTANT:
         // Create list of branches to try, prioritizing the actual default branch
         const branchesToTry = defaultBranchLocal
           ? [defaultBranchLocal, "main", "master"].filter(
-              (branch, index, arr) => arr.indexOf(branch) === index,
-            )
+            (branch, index, arr) => arr.indexOf(branch) === index,
+          )
           : ["main", "master"];
 
         for (const branch of branchesToTry) {
@@ -2210,7 +2202,7 @@ IMPORTANT:
                         categoryId === "other"
                           ? "Other"
                           : categoryId.charAt(0).toUpperCase() +
-                            categoryId.slice(1),
+                          categoryId.slice(1),
                     };
 
                     const sectionId = `section-${categoryId}`;
@@ -2463,16 +2455,16 @@ IMPORTANT:
                     ? `${wikiStructure.pages.length}ページ中${wikiStructure.pages.length - pagesInProgress.size}ページ完了`
                     : messages.repoPage?.pagesCompleted
                       ? messages.repoPage.pagesCompleted
-                          .replace(
-                            "{completed}",
-                            (
-                              wikiStructure.pages.length - pagesInProgress.size
-                            ).toString(),
-                          )
-                          .replace(
-                            "{total}",
-                            wikiStructure.pages.length.toString(),
-                          )
+                        .replace(
+                          "{completed}",
+                          (
+                            wikiStructure.pages.length - pagesInProgress.size
+                          ).toString(),
+                        )
+                        .replace(
+                          "{total}",
+                          wikiStructure.pages.length.toString(),
+                        )
                       : `${wikiStructure.pages.length - pagesInProgress.size} of ${wikiStructure.pages.length} pages completed`}
                 </p>
 
@@ -2505,9 +2497,9 @@ IMPORTANT:
                             ? `...他に${pagesInProgress.size - 3}ページ`
                             : messages.repoPage?.andMorePages
                               ? messages.repoPage.andMorePages.replace(
-                                  "{count}",
-                                  (pagesInProgress.size - 3).toString(),
-                                )
+                                "{count}",
+                                (pagesInProgress.size - 3).toString(),
+                              )
                               : `...and ${pagesInProgress.size - 3} more`}
                         </li>
                       )}
@@ -2531,9 +2523,9 @@ IMPORTANT:
             <p className="text-[var(--muted)] text-xs">
               {embeddingError
                 ? messages.repoPage?.embeddingErrorDefault ||
-                  "This error is related to the document embedding system used for analyzing your repository. Please verify your embedding model configuration, API keys, and try again. If the issue persists, consider switching to a different embedding provider in the model settings."
+                "This error is related to the document embedding system used for analyzing your repository. Please verify your embedding model configuration, API keys, and try again. If the issue persists, consider switching to a different embedding provider in the model settings."
                 : messages.repoPage?.errorMessageDefault ||
-                  'Please check that your repository exists and is public. Valid formats are "owner/repo", "https://github.com/owner/repo", "https://gitlab.com/owner/repo", "https://bitbucket.org/owner/repo", or local folder paths like "C:\\path\\to\\folder" or "/path/to/folder".'}
+                'Please check that your repository exists and is public. Valid formats are "owner/repo", "https://github.com/owner/repo", "https://gitlab.com/owner/repo", "https://bitbucket.org/owner/repo", or local folder paths like "C:\\path\\to\\folder" or "/path/to/folder".'}
             </p>
             <div className="mt-5">
               <Link
@@ -2590,11 +2582,10 @@ IMPORTANT:
               <div className="mb-3 flex items-center text-xs text-[var(--muted)]">
                 <span className="mr-2">Wiki Type:</span>
                 <span
-                  className={`px-2 py-0.5 rounded-full ${
-                    isComprehensiveView
-                      ? "bg-[var(--accent-primary)]/10 text-[var(--accent-primary)] border border-[var(--accent-primary)]/30"
-                      : "bg-[var(--background)] text-[var(--foreground)] border border-[var(--border-color)]"
-                  }`}
+                  className={`px-2 py-0.5 rounded-full ${isComprehensiveView
+                    ? "bg-[var(--accent-primary)]/10 text-[var(--accent-primary)] border border-[var(--accent-primary)]/30"
+                    : "bg-[var(--background)] text-[var(--foreground)] border border-[var(--border-color)]"
+                    }`}
                 >
                   {isComprehensiveView
                     ? messages.form?.comprehensive || "Comprehensive"
