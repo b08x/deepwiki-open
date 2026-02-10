@@ -1,0 +1,64 @@
+2026-02-10 09:10:53 | CREATE | api/google_embedder_client.py            |  231 |        | dirty
+2026-02-10 09:11:02 | CREATE | api/google_embedder_client.py            |  232 |     +1 | dirty
+2026-02-10 09:11:05 | CREATE | api/google_embedder_client.py            |  232 |        | dirty
+2026-02-10 09:11:21 | CREATE | api/google_embedder_client.py            |  239 |     +7 | dirty
+2026-02-10 09:11:33 | CREATE | api/google_embedder_client.py            |  233 |     -6 | dirty
+2026-02-10 09:11:53 | CREATE | api/google_embedder_client.py            |  234 |     +1 | dirty
+2026-02-10 09:12:07 | CREATE | api/google_embedder_client.py            |  242 |     +8 | dirty
+2026-02-10 09:12:24 | CREATE | tests/unit/test_google_embedder.py       |  183 |        | dirty
+2026-02-10 09:13:24 | CREATE | api/main.py                              |   77 |     -2 | dirty
+2026-02-10 09:13:37 | CREATE | api/api.py                               |  704 |     -1 | dirty
+2026-02-10 09:14:17 | CREATE | tests/run_tests.py                       |  163 |        | dirty
+2026-02-10 09:16:13 | CREATE | api/simple_chat.py                       |  690 |     +1 | dirty
+2026-02-10 09:16:25 | CREATE | api/simple_chat.py                       |  690 |        | dirty
+2026-02-10 09:16:38 | CREATE | api/simple_chat.py                       |  691 |     +1 | dirty
+2026-02-10 09:16:45 | CREATE | api/simple_chat.py                       |  696 |     +5 | dirty
+2026-02-10 09:16:54 | CREATE | api/simple_chat.py                       |  699 |     +3 | dirty
+2026-02-10 09:17:14 | CREATE | api/websocket_wiki.py                    | 1415 |     +1 | dirty
+2026-02-10 09:17:14 | CREATE | api/websocket_wiki.py                    | 1415 |        | dirty
+2026-02-10 09:17:21 | CREATE | api/websocket_wiki.py                    | 1416 |     +1 | dirty
+2026-02-10 09:17:26 | CREATE | api/websocket_wiki.py                    | 1421 |     +5 | dirty
+2026-02-10 09:17:43 | CREATE | api/websocket_wiki.py                    | 1423 |     +2 | dirty
+2026-02-10 09:32:34 | CREATE | api/provider_validator.py                |  391 |   +391 | 
+2026-02-10 09:32:53 | CREATE | api/validators/__init__.py               |   11 |    +11 | 
+2026-02-10 09:33:09 | CREATE | api/validators/openrouter_validator.py   |  126 |   +126 | 
+2026-02-10 09:33:35 | CREATE | api/validators/google_validator.py       |  131 |   +131 | 
+2026-02-10 09:33:56 | CREATE | api/validators/ollama_validator.py       |  128 |   +128 | 
+2026-02-10 09:34:35 | CREATE | api/mistral_client.py                    |  249 |   +249 | 
+2026-02-10 09:34:57 | CREATE | api/groq_client.py                       |  248 |   +248 | 
+2026-02-10 09:35:28 | CREATE | api/huggingface_client.py                |  305 |   +305 | 
+2026-02-10 09:35:55 | CREATE | api/validators/mistral_validator.py      |  128 |   +128 | 
+2026-02-10 09:36:07 | CREATE | api/validators/groq_validator.py         |  127 |   +127 | 
+2026-02-10 09:36:25 | CREATE | api/validators/huggingface_validator.py  |  155 |   +155 | 
+2026-02-10 09:36:31 | CREATE | api/validators/__init__.py               |   17 |     +6 | 
+2026-02-10 09:37:14 | CREATE | api/config.py                            |  390 |     +3 | dirty
+2026-02-10 09:37:20 | CREATE | api/config.py                            |  393 |     +3 | dirty
+2026-02-10 09:37:30 | CREATE | api/config.py                            |  396 |     +3 | dirty
+2026-02-10 09:37:38 | CREATE | api/config.py                            |  402 |     +6 | dirty
+2026-02-10 09:38:09 | CREATE | api/api.py                               |  713 |     +9 | dirty
+2026-02-10 09:38:24 | CREATE | api/api.py                               |  727 |    +14 | dirty
+2026-02-10 09:38:41 | CREATE | api/api.py                               |  758 |    +31 | dirty
+2026-02-10 09:39:07 | CREATE | api/api.py                               |  871 |   +113 | dirty
+2026-02-10 09:39:44 | CREATE | src/components/UserSelector.tsx          |  577 |    +55 | dirty
+2026-02-10 09:39:59 | CREATE | src/components/UserSelector.tsx          |  606 |    +29 | dirty
+2026-02-10 09:40:36 | CREATE | tests/unit/test_provider_validator.py    |  242 |   +242 | 
+2026-02-10 09:51:03 | CREATE | api/provider_validator.py                |  392 |     +1 | 
+2026-02-10 09:51:08 | CREATE | api/validators/openrouter_validator.py   |  129 |     +3 | 
+2026-02-10 09:51:13 | CREATE | api/validators/google_validator.py       |  133 |     +2 | 
+2026-02-10 09:51:18 | CREATE | api/validators/ollama_validator.py       |  130 |     +2 | 
+2026-02-10 09:51:32 | CREATE | api/validators/mistral_validator.py      |  130 |     +2 | 
+2026-02-10 09:51:38 | CREATE | api/validators/groq_validator.py         |  129 |     +2 | 
+2026-02-10 09:51:47 | CREATE | api/validators/huggingface_validator.py  |  157 |     +2 | 
+2026-02-10 09:54:57 | CREATE | next.config.ts                           |   83 |    +13 | dirty
+2026-02-10 09:55:19 | CREATE | src/app/api/models/config/route.ts       |   56 |     +8 | dirty
+2026-02-10 09:55:56 | CREATE | src/app/api/providers/refresh/route.ts   |   66 |    +66 | 
+2026-02-10 09:56:07 | CREATE | next.config.ts                           |   70 |    -13 | 
+2026-02-10 09:56:27 | CREATE | src/components/UserSelector.tsx          |  607 |     +1 | dirty
+2026-02-10 10:14:02 | CREATE | api/validators/google_validator.py       |  149 |    +16 | 
+2026-02-10 10:14:10 | CREATE | api/validators/google_validator.py       |  157 |     +8 | 
+2026-02-10 10:22:58 | CREATE | api/google_embedder_client.py            |  244 |     +2 | dirty
+2026-02-10 10:23:11 | CREATE | api/google_embedder_client.py            |  244 |        | dirty
+2026-02-10 10:23:17 | CREATE | api/google_embedder_client.py            |  244 |        | dirty
+2026-02-10 11:11:31 | CREATE | api/openrouter_client.py                 |  584 |     +2 | dirty
+2026-02-10 11:11:40 | CREATE | api/openrouter_client.py                 |  586 |     +2 | dirty
+2026-02-10 11:35:37 | CREATE | api/openrouter_client.py                 |  589 |     +3 | dirty
