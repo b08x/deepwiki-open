@@ -13,12 +13,16 @@
       "./.hg/", 
       "./.bzr/",
       "./.claude/",
-      "./.cache/"
+      "./.cache/",
+      "./.ruff_cache/",
+      "./tests/"
     ],
     "excluded_files": [
       "CLAUDE.md",
       "GEMINI.md",
       "AGENTS.md",
+      "CONTRIBUTING.md",
+      "coverage.xml",
       "cliff.toml",
       "yarn.lock", 
       "pnpm-lock.yaml", 
@@ -28,6 +32,7 @@
       "requirements.txt.lock", 
       "Cargo.lock", 
       "composer.lock",
+      "uv.lock",
       ".lock", 
       ".DS_Store", 
       "Thumbs.db", 

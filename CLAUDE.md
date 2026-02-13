@@ -65,6 +65,10 @@ Context7 MCP is available to fetch up-to-date documentation with code examples.
   - Includes Gemini Developer API and Vertex AI integration
   - 722 code snippets | Benchmark score: 83.9 | High reputation
 
+- `/sylphai-inc/adalflow` - AdalFlow Library
+  - PyTorch-like library for building and auto-optimizing language model workflows (Chatbots, RAG, Agents)
+  - 1,128 code snippets | Source Reputation: High
+
 **Additional Resources:**
 
 - `/websites/ai_google_dev_gemini-api` - Gemini API Documentation

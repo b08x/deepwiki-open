@@ -11,7 +11,10 @@
   "embedder_ollama": {
     "client_class": "OllamaClient",
     "model_kwargs": {
-      "model": "embeddinggemma"
+      "model": "bge-m3",
+      "options": {
+        "num_ctx": 8192
+      }
     }
   },
   "embedder_google": {
