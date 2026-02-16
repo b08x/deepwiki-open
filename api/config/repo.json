@@ -15,12 +15,20 @@
       "./.claude/",
       "./.cache/",
       "./.ruff_cache/",
-      "./tests/"
+      "./tests/",
+      "./doc/"
     ],
     "excluded_files": [
+      "Git_History_Narrative_Graph_Design_2026-01-15_215512.md",
+      ".solargraph.yml",
+      ".rubocop_todo.yml",
+      ".rubocop.yml",
+      "repomix-computertools.xml",
+      ".tool-versions",
+      ".repomixignore",
+      "README.md",
       "CLAUDE.md",
       "GEMINI.md",
-      "AGENTS.md",
       "CONTRIBUTING.md",
       "coverage.xml",
       "cliff.toml",
