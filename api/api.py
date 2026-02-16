@@ -1,4 +1,9 @@
-from api.config import configs, WIKI_AUTH_MODE, WIKI_AUTH_CODE
+from api.prompts import (
+    WIKI_STRUCTURE_SYSTEM_PROMPT,
+    PORTING_DECONSTRUCTION_SYSTEM_PROMPT,
+)
+from api.ast_integration import ASTTextSplitter
+from adalflow import Document
 from api.websocket_wiki import handle_websocket_chat
 from api.simple_chat import chat_completions_stream
 from api.repo_utils import analyze_local_repository, format_chunk_as_tree
@@ -172,6 +177,23 @@ class WikiExportRequest(BaseModel):
                                   description="List of wiki pages to export")
     format: Literal["markdown",
                     "json"] = Field(..., description="Export format (markdown or json)")
+
+class PortingAnalysisRequest(BaseModel):
+    """
+    Model for requesting a porting analysis of a code file.
+    """
+    file_content: str = Field(..., description="The content of the code file to analyze")
+    file_name: str = Field(..., description="The name of the file (for language detection)")
+    provider: str = Field("google", description="Model provider to use")
+    model: Optional[str] = Field(None, description="Model ID to use")
+
+
+class PortingAnalysisResponse(BaseModel):
+    """
+    Model for the porting analysis response.
+    """
+    analysis: str = Field(..., description="The language-agnostic deconstruction of the code")
+
 
 # --- Model Configuration Models ---
 
@@ -434,6 +456,62 @@ async def refresh_provider_models(
     except Exception as e:
         logger.error(f"Error refreshing models for {provider}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Refresh error: {str(e)}")
+
+
+@app.post("/analyze/porting", response_model=PortingAnalysisResponse)
+async def analyze_for_porting(request: PortingAnalysisRequest):
+    """
+    Deconstruct code into a language-agnostic specification.
+    """
+    try:
+        from api.config import get_model_config
+        from api.data_pipeline import count_tokens
+
+        # 1. Determine if we need to chunk (optional, for very large files)
+        # For now, we take the whole file if it's within reasonable limits
+        # If it's too large, we might want to use ASTTextSplitter
+        
+        # 2. Prepare the prompt
+        system_instruction = PORTING_DECONSTRUCTION_SYSTEM_PROMPT
+        user_prompt = f"Deconstruct this code module ({request.file_name}):\n\n```\n{request.file_content}\n```"
+
+        # 3. Call the LLM
+        model_config = get_model_config(request.provider, request.model)
+        client = model_config["model_client"]()
+        model_kwargs = model_config["model_kwargs"]
+        
+        # Add system instruction
+        if "system_instruction" in model_kwargs: # Google/Vertex
+            model_kwargs["system_instruction"] = system_instruction
+        
+        # Construct the call based on provider features
+        # For simplicity, we use a basic completion call
+        # In a real scenario, we might want to use adal.Generator
+        
+        from adalflow.core.types import ModelType, GeneratorOutput
+        from adalflow.core.generator import Generator
+        
+        # We use a simple generator for a one-shot response
+        generator = Generator(
+            model_client=client,
+            model_kwargs=model_kwargs,
+            template="""{{system_prompt}}
+
+{{user_prompt}}
+""",
+            prompt_kwargs={
+                "system_prompt": system_instruction,
+                "user_prompt": user_prompt
+            }
+        )
+        
+        response: GeneratorOutput = await generator.acall()
+        
+        return PortingAnalysisResponse(analysis=response.data)
+
+    except Exception as e:
+        logger.error(f"Error in porting analysis: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/export/wiki")

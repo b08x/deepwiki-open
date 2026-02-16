@@ -463,6 +463,8 @@ class ASTChunker:
                         content=merged_content,
                         chunk_type='merged',
                         file_path=chunk.file_path,
+                        start_line=prev_chunk.start_line or chunk.start_line,
+                        end_line=chunk.end_line or prev_chunk.end_line,
                         dependencies=list(
                             set(prev_chunk.dependencies + chunk.dependencies))
                     )
@@ -534,3 +536,129 @@ class ASTChunker:
     def _chunk_go(self, file_path: str, content: str) -> List[CodeChunk]:
         """Chunk Go code."""
         return self._chunk_text(file_path, content)
+
+# ============================================================================
+# ADALFLOW INTEGRATION
+# ============================================================================
+
+import adalflow as adal
+from adalflow import Document
+
+
+class ASTTextSplitter(adal.Component):
+    """
+    AdalFlow component that splits documents using AST-based chunking.
+    This component acts as a bridge between the ASTChunker and AdalFlow pipelines.
+    """
+
+    def __init__(self,
+                 split_by: str = "ast",
+                 chunk_size: int = 2000,
+                 chunk_overlap: int = 200,
+                 min_chunk_size: int = 100,
+                 **kwargs):
+        """
+        Initialize the AST text splitter.
+
+        Args:
+            split_by: Must be "ast" to use this splitter
+            chunk_size: Maximum tokens per chunk
+            chunk_overlap: Number of tokens to overlap (approximated via lines in ASTChunker)
+            min_chunk_size: Minimum tokens per chunk
+            **kwargs: Additional arguments for ASTChunker
+        """
+        super().__init__()
+        self.split_by = split_by
+        self.chunk_size = chunk_size
+        self.chunk_overlap = chunk_overlap
+        self.min_chunk_size = min_chunk_size
+
+        # Initialize the underlying ASTChunker
+        # Note: ASTChunker uses lines for overlap, so we convert overlap tokens to lines (approx)
+        overlap_lines = chunk_overlap // 10  # Very rough approximation
+        self.chunker = ASTChunker(
+            max_chunk_size=chunk_size,
+            min_chunk_size=min_chunk_size,
+            overlap_lines=overlap_lines,
+            **kwargs
+        )
+
+    def call(self, documents: List[Document]) -> List[Document]:
+        """
+        Split a list of documents into chunks.
+
+        Args:
+            documents: List of Document objects to be split
+
+        Returns:
+            List of new Document objects representing the chunks
+        """
+        all_chunks = []
+
+        for doc in documents:
+            file_path = doc.meta_data.get('file_path', 'unknown')
+            content = doc.text
+
+            # Split the file using ASTChunker
+            try:
+                code_chunks = self.chunker.chunk_file(file_path, content)
+
+                for i, chunk in enumerate(code_chunks):
+                    # Create a new Document for each chunk
+                    chunk_doc = Document(
+                        text=chunk.content,
+                        id=f"{doc.id}_chunk_{i}",
+                        meta_data={
+                            **doc.meta_data,
+                            'chunk_id': i,
+                            'chunk_type': chunk.chunk_type,
+                            'chunk_name': chunk.name,
+                            'start_line': chunk.start_line,
+                            'end_line': chunk.end_line,
+                            'dependencies': chunk.dependencies,
+                            'parent_doc_id': doc.id
+                        }
+                    )
+                    all_chunks.append(chunk_doc)
+            except Exception as e:
+                logger.error(f"Error splitting document {file_path}: {e}")
+                # Fallback: if AST chunking fails, keep the original document
+                all_chunks.append(doc)
+
+        return all_chunks
+
+
+class EnhancedRAGRetriever(adal.Component):
+    """
+    Enhanced retriever that can leverage AST-specific metadata for better retrieval.
+    Currently acts as a pass-through to the base retriever but provides
+    a foundation for structural code search.
+    """
+
+    def __init__(self, base_retriever: adal.Component):
+        """
+        Initialize the enhanced retriever.
+
+        Args:
+            base_retriever: The underlying FAISSRetriever or similar
+        """
+        super().__init__()
+        self.base_retriever = base_retriever
+
+    def call(self, query: str, **kwargs) -> List[Any]:
+        """
+        Retrieve relevant document chunks for a query.
+
+        Args:
+            query: The user query
+            **kwargs: Additional retrieval arguments
+
+        Returns:
+            List of retrieved chunks
+        """
+        # For now, just pass through to the base retriever
+        # In the future, this can be expanded with logic to:
+        # 1. Boost results from implementation files
+        # 2. Re-rank based on dependency graphs
+        # 3. Filter by chunk type (e.g. only return functions)
+        return self.base_retriever.call(query, **kwargs)

@@ -69,6 +69,14 @@ Context7 MCP is available to fetch up-to-date documentation with code examples.
   - PyTorch-like library for building and auto-optimizing language model workflows (Chatbots, RAG, Agents)
   - 1,128 code snippets | Source Reputation: High
 
+- `/pydantic/pydantic` - Pydantic Data Validation
+  - Official Pydantic library for Python data validation using type hints
+  - 909 code snippets | Benchmark score: 83.1 | High reputation
+
+- `/llmstxt/pydantic_dev_llms-full_txt` - Pydantic (LLM-Optimized)
+  - Pydantic documentation optimized for LLM usage with extensive examples
+  - 3,391 code snippets | Benchmark score: 87.6 | High reputation
+
 **Additional Resources:**
 
 - `/websites/ai_google_dev_gemini-api` - Gemini API Documentation
@@ -88,6 +96,18 @@ When working with Google Generative AI features:
 2. **For API reference and capabilities**: Query `/websites/ai_google_dev_gemini-api`
    ```
    Example: "What are the available Gemini model parameters and options?"
+   ```
+
+When working with Pydantic:
+
+1. **For data validation with Pydantic**: Query `/pydantic/pydantic`
+   ```
+   Example: "How to create a validator with field constraints?"
+   ```
+
+2. **For LLM-optimized examples**: Query `/llmstxt/pydantic_dev_llms-full_txt`
+   ```
+   Example: "Show me comprehensive Pydantic v2 patterns for data models"
    ```
 
 ### Context7 MCP Tools
