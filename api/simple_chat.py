@@ -32,6 +32,9 @@ from api.prompts import (
     DEEP_RESEARCH_FINAL_ITERATION_PROMPT,
     DEEP_RESEARCH_INTERMEDIATE_ITERATION_PROMPT,
     SIMPLE_CHAT_SYSTEM_PROMPT,
+    PORTING_DATA_PROMPT,
+    PORTING_API_PROMPT,
+    PORTING_LOGIC_PROMPT,
 )
 
 # Configure logging
@@ -388,12 +391,25 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                     language_name=language_name,
                 )
         else:
-            system_prompt = SIMPLE_CHAT_SYSTEM_PROMPT.format(
-                repo_type=repo_type,
-                repo_url=repo_url,
-                repo_name=repo_name,
-                language_name=language_name,
-            )
+            # Detect architectural layer for specialized porting prompts
+            is_data_layer = any(kw in query.lower() for kw in ["data model", "schema", "persistence", "database", "stateful"])
+            is_api_layer = any(kw in query.lower() for kw in ["api contract", "endpoint", "interface", "protocol", "http"])
+            is_logic_layer = any(kw in query.lower() for kw in ["business logic", "algorithm", "process flow", "logic flow"])
+
+            if is_data_layer:
+                system_prompt = PORTING_DATA_PROMPT
+            elif is_api_layer:
+                system_prompt = PORTING_API_PROMPT
+            elif is_logic_layer:
+                system_prompt = PORTING_LOGIC_PROMPT
+                query = f"[CONTEXT AWARENESS: Prioritize any Data Model or API Contract information found in the retrieved context or history]\n{query}"
+            else:
+                system_prompt = SIMPLE_CHAT_SYSTEM_PROMPT.format(
+                    repo_type=repo_type,
+                    repo_url=repo_url,
+                    repo_name=repo_name,
+                    language_name=language_name,
+                )
 
         # Fetch file content if provided
         file_content = ""

@@ -248,3 +248,54 @@ END
 ## 5. Porting Risks
 * Identify specific patterns (e.g., specific Python decorators, React hooks, pointer arithmetic) that do not have direct equivalents in other languages.
 """
+
+# ============================================================================
+# MODULAR PORTING WIKI PROMPTS
+# ============================================================================
+
+PORTING_WIKI_STRUCTURE_PROMPT = r"""
+You are an expert Systems Architect creating a migration wiki structure.
+Your goal is to organize the repository analysis into three clear architectural layers:
+1. **Data Models & State**: Schema, persistence, and data structures.
+2. **API & Interface Contracts**: External boundaries, protocols, and endpoints.
+3. **Core Business Logic**: Algorithmic flows and decision-making rules.
+
+CRITICAL XML FORMATTING INSTRUCTIONS:
+- You MUST return ONLY valid XML with NO additional text.
+- DO NOT wrap in markdown code blocks.
+- Start directly with <wiki_structure> and end with </wiki_structure>.
+
+XML STRUCTURE REQUIREMENTS:
+- Use <sections> to group pages into "Data Models", "API Contracts", and "Business Logic".
+- Each <page> must include a <porting_layer> element with one of: [data, api, logic].
+"""
+
+PORTING_DATA_PROMPT = rf"""
+{{PORTING_DECONSTRUCTION_SYSTEM_PROMPT}}
+
+## ARCHITECTURAL LAYER: DATA & STATE
+Focus exclusively on identifying:
+1. **Entity Relationships**: Map how data structures relate to each other.
+2. **Persistence Mechanics**: Identify database interactions (SQL/NoSQL/Cache).
+3. **State Transitions**: Document how state changes across the component.
+"""
+
+PORTING_API_PROMPT = rf"""
+{{PORTING_DECONSTRUCTION_SYSTEM_PROMPT}}
+
+## ARCHITECTURAL LAYER: API & CONTRACTS
+Focus exclusively on identifying:
+1. **Endpoint Definitions**: Method, Path, and Request/Response schemas.
+2. **Input Validation**: Rules for incoming data.
+3. **Internal Boundaries**: How this component exposes functionality to other modules.
+"""
+
+PORTING_LOGIC_PROMPT = rf"""
+{{PORTING_DECONSTRUCTION_SYSTEM_PROMPT}}
+
+## ARCHITECTURAL LAYER: BUSINESS LOGIC
+Focus exclusively on identifying:
+1. **Algorithmic Core**: The primary calculation or decision logic.
+2. **Side Effects**: External calls, logging, or state updates triggered by logic.
+3. **Domain Rules**: Abstract the business constraints from the code implementation.
+"""

@@ -23,7 +23,13 @@ from api.openai_client import OpenAIClient
 from api.openrouter_client import OpenRouterClient
 from api.azureai_client import AzureAIClient
 from api.dashscope_client import DashscopeClient
-from api.prompts import WIKI_STRUCTURE_SYSTEM_PROMPT
+from api.prompts import (
+    WIKI_STRUCTURE_SYSTEM_PROMPT,
+    PORTING_WIKI_STRUCTURE_PROMPT,
+    PORTING_DATA_PROMPT,
+    PORTING_API_PROMPT,
+    PORTING_LOGIC_PROMPT,
+)
 from api.rag import RAG
 
 # Configure logging
@@ -503,10 +509,12 @@ async def handle_websocket_chat(websocket: WebSocket):
         language_name = supported_langs.get(language_code, "English")
 
         # Detect if this is a wiki structure generation request
-        is_structure_generation = "create a wiki structure" in query.lower() or (
-            "analyze this github repository" in query.lower()
-            and "wiki structure" in query.lower()
+        is_structure_generation = "wiki structure" in query.lower() or (
+            "analyze" in query.lower() and "repository" in query.lower() and "structure" in query.lower()
         )
+        
+        # Detect if this is a specialized porting wiki request
+        is_porting_mode = "porting" in query.lower() or "migration" in query.lower() or "deconstruction" in query.lower()
 
         if is_structure_generation:
             logger.info(
@@ -516,7 +524,10 @@ async def handle_websocket_chat(websocket: WebSocket):
         # Create system prompt
         if is_structure_generation:
             # Use the XML structure prompt imported at the top
-            system_prompt = WIKI_STRUCTURE_SYSTEM_PROMPT
+            if is_porting_mode:
+                system_prompt = PORTING_WIKI_STRUCTURE_PROMPT
+            else:
+                system_prompt = WIKI_STRUCTURE_SYSTEM_PROMPT
         elif is_deep_research:
             # Check if this is the first iteration
             is_first_iteration = research_iteration == 1
@@ -618,7 +629,22 @@ IMPORTANT:You MUST respond in {language_name} language.
 - Cite specific files and code sections when relevant
 </style>"""
         else:
-            system_prompt = f"""<role>
+            # Detect architectural layer for specialized porting prompts
+            is_data_layer = any(kw in query.lower() for kw in ["data model", "schema", "persistence", "database", "stateful"])
+            is_api_layer = any(kw in query.lower() for kw in ["api contract", "endpoint", "interface", "protocol", "http"])
+            is_logic_layer = any(kw in query.lower() for kw in ["business logic", "algorithm", "process flow", "logic flow"])
+
+            if is_data_layer:
+                system_prompt = PORTING_DATA_PROMPT
+            elif is_api_layer:
+                system_prompt = PORTING_API_PROMPT
+            elif is_logic_layer:
+                # Automated context injection for Logic Layer
+                # We append a directive to the prompt to look for Data/API context
+                system_prompt = PORTING_LOGIC_PROMPT
+                query = f"[CONTEXT AWARENESS: Prioritize any Data Model or API Contract information found in the retrieved context or history]\n{query}"
+            else:
+                system_prompt = f"""<role>
 You are an expert code analyst examining the {repo_type} repository: {repo_url} ({repo_name}).
 You provide direct, concise, and accurate information about code repositories.
 You NEVER start responses with markdown headers or code fences.
