@@ -32,7 +32,7 @@ import fnmatch
 
 # Configure logging
 from api.logging_config import setup_logging
-from api.config import load_repo_config
+from api.config import load_repo_config, configs, WIKI_AUTH_MODE, WIKI_AUTH_CODE
 
 setup_logging()
 logger = logging.getLogger(__name__)
